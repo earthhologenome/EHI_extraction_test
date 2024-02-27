@@ -1,0 +1,81 @@
+Dataset	Library	Species	Taxon	Sample	Extraction
+EHI02065	AJP52E1L1I1	Calotriton asper	Amphibian	AJP52	DREX
+EHI02088	AJP51E1L1I1	Calotriton asper	Amphibian	AJP51	DREX
+EHI02097	AJP52E2L1I1	Calotriton asper	Amphibian	AJP52	ZYMO
+EHI02105	AJP51E2L1I1	Calotriton asper	Amphibian	AJP51	ZYMO
+EHI02067	AJP51E3L1I1	Calotriton asper	Amphibian	AJP51	EHEX
+EHI02079	AJP52E3L1I1	Calotriton asper	Amphibian	AJP52	EHEX
+EHI02095	AGO69E1L1I1	Lissotriton helveticus	Amphibian	AGO69	DREX
+EHI02115	AAQ18E1L1I1	Lissotriton helveticus	Amphibian	AAQ18	DREX
+EHI02104	AGO69E2L1I1	Lissotriton helveticus	Amphibian	AGO69	ZYMO
+EHI02128	AAQ18E2L1I1	Lissotriton helveticus	Amphibian	AAQ18	ZYMO
+EHI02085	AGO69E3L1I1	Lissotriton helveticus	Amphibian	AGO69	EHEX
+EHI02109	AAQ18E3L1I1	Lissotriton helveticus	Amphibian	AAQ18	EHEX
+EHI02073	ABD27E1L1I1	Salamandra atra	Amphibian	ABD27	DREX
+EHI02101	ABE10E1L1I1	Salamandra atra	Amphibian	ABE10	DREX
+EHI02114	ABD27E2L1I1	Salamandra atra	Amphibian	ABD27	ZYMO
+EHI02116	ABE10E2L1I1	Salamandra atra	Amphibian	ABE10	ZYMO
+EHI02086	ABD27E3L1I1	Salamandra atra	Amphibian	ABD27	EHEX
+EHI02110	ABE10E3L1I1	Salamandra atra	Amphibian	ABE10	EHEX
+EHI02124	AGI59E1L1I1	Geospizopsis unicolor	Bird	AGI59	DREX
+EHI02125	AGI58E1L1I1	Geospizopsis unicolor	Bird	AGI58	DREX
+EHI02133	AGI59E2L1I1	Geospizopsis unicolor	Bird	AGI59	ZYMO
+EHI02137	AGI58E2L1I1	Geospizopsis unicolor	Bird	AGI58	ZYMO
+EHI02121	AGI59E3L1I1	Geospizopsis unicolor	Bird	AGI59	EHEX
+EHI02122	AGI58E3L1I1	Geospizopsis unicolor	Bird	AGI58	EHEX
+EHI02111	AIV55E1L1I1	Perisoreus infaustus	Bird	AIV55	DREX
+EHI02142	AGZ59E1L1I1	Perisoreus infaustus	Bird	AGZ59	DREX
+EHI02103	AGZ59E2L1I1	Perisoreus infaustus	Bird	AGZ59	ZYMO
+EHI02131	AIV55E2L1I1	Perisoreus infaustus	Bird	AIV55	ZYMO
+EHI02099	AGZ59E3L1I1	Perisoreus infaustus	Bird	AGZ59	EHEX
+EHI02107	AIV55E3L1I1	Perisoreus infaustus	Bird	AIV55	EHEX
+EHI02117	AGI41E1L1I1	Zonotrichia capensis	Bird	AGI41	DREX
+EHI02140	AGI42E1L1I1	Zonotrichia capensis	Bird	AGI42	DREX
+EHI02127	AGI41E2L1I1	Zonotrichia capensis	Bird	AGI41	ZYMO
+EHI02132	AGI42E2L1I1	Zonotrichia capensis	Bird	AGI42	ZYMO
+EHI02108	AGI41E3L1I1	Zonotrichia capensis	Bird	AGI41	EHEX
+EHI02134	AGI42E3L1I1	Zonotrichia capensis	Bird	AGI42	EHEX
+EHI02130	C1_EXB0076E1L1I1	Extraction control	Control	C1_EXB0076	DREX
+EHI02136	C2_EXB0076E1L1I1	Extraction control	Control	C2_EXB0076	DREX
+EHI02129	C2_EXB0076E2L1I1	Extraction control	Control	C2_EXB0076	ZYMO
+EHI02141	C1_EXB0076E2L1I1	Extraction control	Control	C1_EXB0076	ZYMO
+EHI02135	C1_EXB0076E3L1I1	Extraction control	Control	C1_EXB0076	EHEX
+EHI02143	C2_EXB0076E3L1I1	Extraction control	Control	C2_EXB0076	EHEX
+EHI02138	C1_LIB0072E1L1I1	Library control	Control	C1_LIB0072	DREX
+EHI02139	C2_LIB0072E1L1I1	Library control	Control	C2_LIB0072	DREX
+EHI02081	ACB61E1L1I1	Plecotus auritus	Mammal	ACB61	DREX
+EHI02087	ACB56E1L1I1	Plecotus auritus	Mammal	ACB56	DREX
+EHI02112	ACB56E2L1I1	Plecotus auritus	Mammal	ACB56	ZYMO
+EHI02118	ACB61E2L1I1	Plecotus auritus	Mammal	ACB61	ZYMO
+EHI02084	ACB61E3L1I1	Plecotus auritus	Mammal	ACB61	EHEX
+EHI02090	ACB56E3L1I1	Plecotus auritus	Mammal	ACB56	EHEX
+EHI02068	AAZ65E1L1I1	Sciurus carolinensis	Mammal	AAZ65	DREX
+EHI02080	ABA95E1L1I1	Sciurus carolinensis	Mammal	ABA95	DREX
+EHI02089	AAZ65E2L1I1	Sciurus carolinensis	Mammal	AAZ65	ZYMO
+EHI02096	ABA95E2L1I1	Sciurus carolinensis	Mammal	ABA95	ZYMO
+EHI02070	AAZ65E3L1I1	Sciurus carolinensis	Mammal	AAZ65	EHEX
+EHI02078	ABA95E3L1I1	Sciurus carolinensis	Mammal	ABA95	EHEX
+EHI02082	AEC24E1L1I1	Trichosurus vulpecula v. hypoleucus	Mammal	AEC24	DREX
+EHI02100	AEC23E1L1I1	Trichosurus vulpecula v. hypoleucus	Mammal	AEC23	DREX
+EHI02064	AEC24E2L1I1	Trichosurus vulpecula v. hypoleucus	Mammal	AEC24	ZYMO
+EHI02074	AEC23E2L1I1	Trichosurus vulpecula v. hypoleucus	Mammal	AEC23	ZYMO
+EHI02098	AEC24E3L1I1	Trichosurus vulpecula v. hypoleucus	Mammal	AEC24	EHEX
+EHI02106	AEC23E3L1I1	Trichosurus vulpecula v. hypoleucus	Mammal	AEC23	EHEX
+EHI02075	AHW91E1L1I1	Chalcides striatus	Reptile	AHW91	DREX
+EHI02123	AHW95E1L1I1	Chalcides striatus	Reptile	AHW95	DREX
+EHI02066	AHW95E2L1I1	Chalcides striatus	Reptile	AHW95	ZYMO
+EHI02113	AHW91E2L1I1	Chalcides striatus	Reptile	AHW91	ZYMO
+EHI02092	AHW91E3L1I1	Chalcides striatus	Reptile	AHW91	EHEX
+EHI02119	AHW95E3L1I1	Chalcides striatus	Reptile	AHW95	EHEX
+EHI02069	AFO83E1L1I1	Natrix astreptophora	Reptile	AFO83	DREX
+EHI02076	AHU97E1L1I1	Natrix astreptophora	Reptile	AHU97	DREX
+EHI02077	AHU97E2L1I1	Natrix astreptophora	Reptile	AHU97	ZYMO
+EHI02126	AFO83E2L1I1	Natrix astreptophora	Reptile	AFO83	ZYMO
+EHI02093	AFO83E3L1I1	Natrix astreptophora	Reptile	AFO83	EHEX
+EHI02120	AHU97E3L1I1	Natrix astreptophora	Reptile	AHU97	EHEX
+EHI02072	AFV20E1L1I1	Podarcis muralis	Reptile	AFV20	DREX
+EHI02094	AFV18E1L1I1	Podarcis muralis	Reptile	AFV18	DREX
+EHI02083	AFV18E2L1I1	Podarcis muralis	Reptile	AFV18	ZYMO
+EHI02102	AFV20E2L1I1	Podarcis muralis	Reptile	AFV20	ZYMO
+EHI02071	AFV18E3L1I1	Podarcis muralis	Reptile	AFV18	EHEX
+EHI02091	AFV20E3L1I1	Podarcis muralis	Reptile	AFV20	EHEX
