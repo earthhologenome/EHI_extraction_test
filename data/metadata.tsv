@@ -55,12 +55,12 @@ EHI02089	AAZ65E2L1I1	Sciurus carolinensis	Mammal	AAZ65	ZYMO
 EHI02096	ABA95E2L1I1	Sciurus carolinensis	Mammal	ABA95	ZYMO
 EHI02070	AAZ65E3L1I1	Sciurus carolinensis	Mammal	AAZ65	EHEX
 EHI02078	ABA95E3L1I1	Sciurus carolinensis	Mammal	ABA95	EHEX
-EHI02082	AEC24E1L1I1	Trichosurus vulpecula v. hypoleucus	Mammal	AEC24	DREX
-EHI02100	AEC23E1L1I1	Trichosurus vulpecula v. hypoleucus	Mammal	AEC23	DREX
-EHI02064	AEC24E2L1I1	Trichosurus vulpecula v. hypoleucus	Mammal	AEC24	ZYMO
-EHI02074	AEC23E2L1I1	Trichosurus vulpecula v. hypoleucus	Mammal	AEC23	ZYMO
-EHI02098	AEC24E3L1I1	Trichosurus vulpecula v. hypoleucus	Mammal	AEC24	EHEX
-EHI02106	AEC23E3L1I1	Trichosurus vulpecula v. hypoleucus	Mammal	AEC23	EHEX
+EHI02082	AEC24E1L1I1	Trichosurus vulpecula	Mammal	AEC24	DREX
+EHI02100	AEC23E1L1I1	Trichosurus vulpecula	Mammal	AEC23	DREX
+EHI02064	AEC24E2L1I1	Trichosurus vulpecula	Mammal	AEC24	ZYMO
+EHI02074	AEC23E2L1I1	Trichosurus vulpecula	Mammal	AEC23	ZYMO
+EHI02098	AEC24E3L1I1	Trichosurus vulpecula	Mammal	AEC24	EHEX
+EHI02106	AEC23E3L1I1	Trichosurus vulpecula	Mammal	AEC23	EHEX
 EHI02075	AHW91E1L1I1	Chalcides striatus	Reptile	AHW91	DREX
 EHI02123	AHW95E1L1I1	Chalcides striatus	Reptile	AHW95	DREX
 EHI02066	AHW95E2L1I1	Chalcides striatus	Reptile	AHW95	ZYMO

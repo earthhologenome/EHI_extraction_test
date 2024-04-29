@@ -1,0 +1,102 @@
+# Genomic data
+
+## Read duplicates
+
+```{r host_duplicates_summary, warning=FALSE, comments="", message=FALSE}
+all_data %>%
+    select(dataset,Extraction,duplicates,Taxon) %>%
+    unique() %>%
+    group_by(Taxon,Extraction) %>%
+    summarise(value = sprintf("%.1f±%.1f", mean(duplicates), sd(duplicates))) %>%
+    pivot_wider(names_from = Extraction, values_from = value) %>%
+    tt(caption = "Mean and standard deviation of fraction of duplicated reads")
+```
+
+```{r host_duplicates_plot, warning=FALSE, comments="", message=FALSE, fig.height=4, fig.width=10, fig.fullwidth=TRUE}
+all_data %>%
+    select(dataset,Extraction,duplicates,Taxon) %>%
+    unique() %>%
+    mutate(Taxon=factor(Taxon,levels=c("Amphibian","Reptile","Mammal","Bird","Control"))) %>%
+    mutate(Extraction=factor(Extraction,levels=c("ZYMO","DREX","EHEX"))) %>%
+    ggplot(aes(x=Extraction,y=duplicates))+ 
+        geom_boxplot() + 
+        facet_grid(. ~ Taxon, scales = "free") +
+        labs(y="Duplication rate",x="Extraction method")
+```
+
+```{r host_duplicates_test, warning=FALSE, comments="", message=FALSE}
+all_data %>%
+    select(dataset,Sample,Species,Extraction,duplicates,Taxon) %>%
+    filter(Taxon != "Control") %>%
+    lmerTest::lmer(duplicates ~ Extraction + (1 | Sample) + (1 | Species), data = ., REML = FALSE) %>%
+    broom.mixed::tidy() %>%
+    tt()
+```
+
+## Depth of coverage
+
+```{r host_depth_summary, warning=FALSE, comments="", message=FALSE}
+all_data %>%
+    select(dataset,Extraction,coverage_depth,Taxon) %>%
+    unique() %>%
+    group_by(Taxon,Extraction) %>%
+    summarise(value = sprintf("%.1f±%.1f", mean(coverage_depth), sd(coverage_depth))) %>%
+    pivot_wider(names_from = Extraction, values_from = value) %>%
+    tt(caption = "Mean and standard deviation of fraction of duplicated reads")
+```
+
+```{r host_depth_plot, warning=FALSE, comments="", message=FALSE, fig.height=4, fig.width=10, fig.fullwidth=TRUE}
+all_data %>%
+    select(dataset,Extraction,coverage_depth,Taxon) %>%
+    unique() %>%
+    mutate(Taxon=factor(Taxon,levels=c("Amphibian","Reptile","Mammal","Bird","Control"))) %>%
+    mutate(Extraction=factor(Extraction,levels=c("ZYMO","DREX","EHEX"))) %>%
+    ggplot(aes(x=Extraction,y=coverage_depth))+ 
+        geom_boxplot() + 
+        facet_grid(. ~ Taxon, scales = "free") +
+        labs(y="Depth of coverage",x="Extraction method")
+```
+
+```{r host_depth_test, warning=FALSE, comments="", message=FALSE}
+all_data %>%
+    select(dataset,Sample,Species,Extraction,coverage_depth,Taxon) %>%
+    unique() %>%
+    filter(Taxon != "Control") %>%
+    lmerTest::lmer(coverage_depth ~ Extraction + (1 | Sample) + (1 | Species), data = ., REML = FALSE) %>%
+    broom.mixed::tidy() %>%
+    tt()
+```
+
+## Breadth of coverage
+
+```{r host_breadth_summary, warning=FALSE, comments="", message=FALSE}
+all_data %>%
+    select(dataset,Extraction,coverage_breadth,Taxon) %>%
+    unique() %>%
+    group_by(Taxon,Extraction) %>%
+    summarise(value = sprintf("%.1f±%.1f", mean(coverage_breadth), sd(coverage_breadth))) %>%
+    pivot_wider(names_from = Extraction, values_from = value) %>%
+    tt(caption = "Mean and standard deviation of depth of host genome coverage")
+```
+
+```{r host_breadth_plot, warning=FALSE, comments="", message=FALSE, fig.height=4, fig.width=10, fig.fullwidth=TRUE}
+all_data %>%
+    select(dataset,Extraction,coverage_breadth,Taxon) %>%
+    unique() %>%
+    mutate(Taxon=factor(Taxon,levels=c("Amphibian","Reptile","Mammal","Bird","Control"))) %>%
+    mutate(Extraction=factor(Extraction,levels=c("ZYMO","DREX","EHEX"))) %>%
+    ggplot(aes(x=Extraction,y=coverage_breadth))+ 
+        geom_boxplot() + 
+        facet_grid(. ~ Taxon, scales = "free") +
+        labs(y="Breadth of coverage",x="Extraction method")
+```
+
+```{r host_breadth_test, warning=FALSE, comments="", message=FALSE}
+all_data %>%
+    select(dataset,Extraction,Sample,Species,coverage_breadth,Taxon) %>%
+    unique() %>%
+    filter(Taxon != "Control") %>%
+    lmerTest::lmer(coverage_breadth ~ Extraction + (1 | Sample) + (1 | Species), data = ., REML = FALSE) %>%
+    broom.mixed::tidy() %>%
+    tt()
+```

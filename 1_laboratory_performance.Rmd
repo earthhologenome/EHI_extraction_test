@@ -1,0 +1,137 @@
+# Laboratory performance
+
+## Load data
+
+```{r load_counts, warning=FALSE, comments="", message=FALSE, echo=FALSE, eval=FALSE}
+sample_metadata <- read_tsv(paste0("data/metadata.tsv")) %>%
+    mutate(Extraction=factor(Extraction, levels=c("ZYMO","DREX","EHEX"))) %>%
+    rename(dataset=Dataset)
+```
+
+```{r extraction_data, warning=FALSE, comments="", message=FALSE, echo=FALSE, eval=FALSE}
+extraction_data <- airtable("tblBcTZcRG1E9wsGO", "appQpr6MxnaiVHsHy") %>% #get base ID from Airtable browser URL
+  read_airtable(., fields = c("EX DNA ng","Datasets_flat"), id_to_col = TRUE) %>% #get 3 columns from MAGs table
+  rename(id=1,extract=2,dataset=3) %>%
+  filter(dataset %in% sample_metadata$dataset) %>%
+  select(dataset,extract)
+```
+
+```{r library_data, warning=FALSE, comments="", message=FALSE, echo=FALSE, eval=FALSE}
+library_data <- airtable("tblo6AuYpxbbGw9gh", "appQpr6MxnaiVHsHy") %>% #get base ID from Airtable browser URL
+  read_airtable(., fields = c("Required PCR cycles","Datasets_flat"), id_to_col = TRUE) %>% #get 3 columns from MAGs table
+  rename(id=1,pcr=2,dataset=3) %>%
+  filter(dataset %in% sample_metadata$dataset) %>%
+  select(dataset,pcr)
+```
+
+```{r indexing_data, warning=FALSE, comments="", message=FALSE, echo=FALSE, eval=FALSE}
+indexing_data <- airtable("tblhfsiR4NI9XJQG0", "appQpr6MxnaiVHsHy") %>% #get base ID from Airtable browser URL
+  read_airtable(., fields = c("Adaptors (nM)","Library (nM)","Datasets_flat"), id_to_col = TRUE) %>% #get 3 columns from MAGs table
+  rename(id=1,adaptors=2,library=3,dataset=4) %>%
+  filter(dataset %in% sample_metadata$dataset) %>%
+  mutate(ratio=library/(adaptors+library)) %>%
+  select(dataset,adaptors,library,ratio)
+```
+
+```{r preprocessing_data, warning=FALSE, comments="", message=FALSE, echo=FALSE, eval=FALSE}
+preprocessing_data <- airtable("tblJfLRU2FIVz37Y1", "appQpr6MxnaiVHsHy") %>% #get base ID from Airtable browser URL
+  read_airtable(., fields = c("bases_pre_fastp","bases_post_fastp","host_bases","metagenomic_bases","singlem_fraction","C","EHI_plaintext"), id_to_col = TRUE) %>% #get 3 columns from MAGs table
+  rename(id=1,nonpareil=C,dataset=EHI_plaintext,microbial_fraction=singlem_fraction) %>%
+  filter(dataset %in% sample_metadata$dataset) %>%
+  select(dataset,bases_pre_fastp,bases_post_fastp,bases_post_fastp,metagenomic_bases,microbial_fraction,nonpareil)
+```
+
+```{r assembly_data, warning=FALSE, comments="", message=FALSE, echo=FALSE, eval=FALSE}
+assembly_data <- airtable("tblG6ZIvkYN844I97", "appQpr6MxnaiVHsHy") %>% #get base ID from Airtable browser URL
+  read_airtable(., fields = c("EHI_number_api","assembly_length","N50","L50","num_contigs","num_bins","metagenomic_bases"), id_to_col = TRUE) %>% #get 3 columns from MAGs table
+  rename(id=1,assembly_mapped_bases=metagenomic_bases,dataset=EHI_number_api) %>%
+  filter(dataset %in% sample_metadata$dataset) %>%
+  select(dataset,assembly_length,N50,L50,num_contigs,num_bins,assembly_mapped_bases)
+```
+
+```{r mapping_data, warning=FALSE, comments="", message=FALSE, echo=FALSE, eval=FALSE}
+mapping_data <- airtable("tblWDyQmM9rQ9wq57", "appWbHBNLE6iAsMRV") %>% #get base ID from Airtable browser URL
+  read_airtable(., fields = c("EHI_sample_static","MAG_mapping_percentage"), id_to_col = TRUE) %>% #get 3 columns from MAGs table
+  rename(id=1,dataset=EHI_sample_static) %>%
+  filter(dataset %in% sample_metadata$dataset) %>%
+  select(dataset,MAG_mapping_percentage)
+```
+
+```{r genomics_data, warning=FALSE, comments="", message=FALSE, echo=FALSE, eval=FALSE}
+genomics_data <- read_tsv("data/host_genomics_stats.tsv")
+```
+
+```{r data_merge, warning=FALSE, comments="", message=FALSE, echo=FALSE, eval=FALSE}
+all_data <- sample_metadata %>%
+    mutate(Taxon=factor(Taxon,levels=c("Amphibian","Bird","Mammal","Reptile","Control"))) %>%
+    left_join(extraction_data, by=join_by(dataset==dataset)) %>%
+    left_join(library_data, by=join_by(dataset==dataset)) %>%
+    left_join(indexing_data, by=join_by(dataset==dataset)) %>%
+    left_join(preprocessing_data, by=join_by(dataset==dataset)) %>%
+    left_join(assembly_data, by=join_by(dataset==dataset)) %>%
+    left_join(mapping_data, by=join_by(dataset==dataset)) %>%
+    left_join(genomics_data, by=join_by(dataset==dataset))
+
+write_tsv(all_data, file="data/all_data.tsv")
+```
+
+Load data previously compiled from the database:
+
+```{r load_laboroty_data, warning=FALSE, comments="", message=FALSE}
+all_data <- read_tsv("data/all_data.tsv")
+```
+
+## DNA yield
+
+Total amount of DNA extracted from the 150 ul subset of the bead-beaten sample. 
+
+```{r yield_summary, warning=FALSE, comments="", message=FALSE}
+all_data %>%
+    group_by(Taxon,Extraction) %>%
+    summarise(value = sprintf("%.0f±%.0f", mean(extract), sd(extract))) %>%
+    pivot_wider(names_from = Extraction, values_from = value) %>%
+    tt(caption = "Mean and standard deviation of total DNA nanograms")
+```
+
+```{r yield_plot, warning=FALSE, comments="", message=FALSE, fig.height=4, fig.width=10, fig.fullwidth=TRUE}
+all_data %>%
+    ggplot(aes(x=Extraction,y=extract))+ 
+        geom_boxplot() + 
+        facet_grid(. ~ Taxon, scales = "free") +
+        labs(y="DNA yield (ng)",x="Extraction method")
+```
+
+```{r yield_test, warning=FALSE, comments="", message=FALSE}
+all_data  %>%
+    filter(Taxon != "Control") %>%
+    lmerTest::lmer(extract ~ Extraction + (1 | Sample) + (1 | Species), data = ., REML = FALSE) %>%
+    broom.mixed::tidy() %>%
+    tt()
+```
+
+## Library performance
+
+Number of PCR cycles required for reaching the plateau phase of the indexing PCR. 
+```{r pcr_summary, warning=FALSE, comments="", message=FALSE}
+all_data %>%
+    group_by(Taxon,Extraction) %>%
+    summarise(value = sprintf("%.1f±%.1f", mean(pcr), sd(pcr))) %>%
+    pivot_wider(names_from = Extraction, values_from = value) %>%
+    tt(caption = "Mean and standard deviation of optimal number of PCR cycles")
+```
+
+```{r pcr_plot, warning=FALSE, comments="", message=FALSE, fig.height=4, fig.width=10, fig.fullwidth=TRUE}
+all_data %>%
+    ggplot(aes(x=Extraction,y=pcr))+ 
+        geom_boxplot() + 
+        facet_grid(. ~ Taxon, scales = "free") +
+        labs(y="Optimal number of PCR cycles",x="Extraction method")
+```
+
+```{r pcr_test, warning=FALSE, comments="", message=FALSE}
+all_data  %>%
+    filter(Taxon != "Control") %>%
+    lmerTest::lmer(pcr ~ Extraction + (1 | Sample) + (1 | Species), data = ., REML = FALSE) %>%
+    broom.mixed::tidy() %>%
+    tt()
+```

@@ -1,0 +1,21 @@
+bookdown::gitbook:
+  self_contained: true
+  css: style.css
+  config:
+    toc:
+      before: |
+        <li class="toc-logo"><img src="ehi_logo.png" alt="Earth Hologenome Initiative"></li>
+        <li align="center"><b>Lauritsen et al. 2024</b></li>
+      after: |
+        <li><a href="https://www.earthhologenome.org" target="blank"><b>Earth Hologenome Initiative</b></a></li>
+        <li><a href="https://www.earthhologenome.org/bioinformatics" target="blank"><b>Bioinformatic workflow</b></a></li>
+        <li><a href="https://www.earthhologenome.org/analysis" target="blank"><b>Analysis workflow</b></a></li>
+    download: ["pdf", "epub"]
+    fig_width: 8
+bookdown::pdf_book:
+  includes:
+    in_header: preamble.tex
+  latex_engine: xelatex
+  citation_package: natbib
+  keep_tex: yes
+bookdown::epub_book: default
