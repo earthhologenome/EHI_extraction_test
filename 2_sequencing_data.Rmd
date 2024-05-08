@@ -24,9 +24,14 @@ all_data %>%
 
 ```{r sequencing_depth_plot, warning=FALSE, comments="", message=FALSE, fig.height=4, fig.width=10, fig.fullwidth=TRUE}
 all_data %>%
-    ggplot(aes(x=Extraction,y=bases_pre_fastp))+ 
-        geom_boxplot() + 
+    select(Library,Species,Extraction,bases_pre_fastp,Taxon) %>%
+    unique() %>%
+    ggplot(aes(x=Extraction,y=bases_pre_fastp, color=Species, group=Extraction)) + 
+        geom_boxplot(outlier.shape = NA, fill="#f4f4f4", color="#8c8c8c") + 
+        geom_jitter() + 
+        scale_color_manual(values=vertebrate_colors) +
         facet_grid(. ~ Taxon, scales = "free") +
+        theme_minimal() +
         labs(y="DNA yield (ng)",x="Extraction method")
 ```
 
@@ -52,10 +57,15 @@ all_data %>%
 ```{r qc_plot, warning=FALSE, comments="", message=FALSE, fig.height=4, fig.width=10, fig.fullwidth=TRUE}
 all_data %>%
     mutate(qf_bases=bases_post_fastp/bases_pre_fastp*100) %>%
-    ggplot(aes(x=Extraction,y=qf_bases))+ 
-        geom_boxplot() + 
+    select(Library,Species,Extraction,qf_bases,Taxon) %>%
+    unique() %>%
+    ggplot(aes(x=Extraction,y=qf_bases, color=Species, group=Extraction)) + 
+        geom_boxplot(outlier.shape = NA, fill="#f4f4f4", color="#8c8c8c") + 
+        geom_jitter() + 
+        scale_color_manual(values=vertebrate_colors) +
         facet_grid(. ~ Taxon, scales = "free") +
-        labs(y="DNA yield (ng)",x="Extraction method")
+        theme_minimal() +
+        labs(y="High-quality d data (%)",x="Extraction method")
 ```
 
 ```{r qc_test, warning=FALSE, comments="", message=FALSE}

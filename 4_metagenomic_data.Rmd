@@ -35,13 +35,14 @@ all_data %>%
 
 ```{r nonpareil_plot, warning=FALSE, comments="", message=FALSE, fig.height=4, fig.width=10, fig.fullwidth=TRUE}
 all_data %>%
-    select(dataset,Extraction,nonpareil,Taxon) %>%
+    select(dataset,Extraction,nonpareil,Taxon,Species) %>%
     unique() %>%
-    mutate(Taxon=factor(Taxon,levels=c("Amphibian","Reptile","Mammal","Bird","Control"))) %>%
-    mutate(Extraction=factor(Extraction,levels=c("ZYMO","DREX","EHEX"))) %>%
-    ggplot(aes(x=Extraction,y=nonpareil))+ 
-        geom_boxplot() + 
+    ggplot(aes(x=Extraction,y=nonpareil, color=Species, group=Extraction)) + 
+        geom_boxplot(outlier.shape = NA, fill="#f4f4f4", color="#8c8c8c") + 
+        geom_jitter() + 
+        scale_color_manual(values=vertebrate_colors) +
         facet_grid(. ~ Taxon, scales = "free") +
+        theme_minimal() +
         labs(y="Nonpareil completeness",x="Extraction method")
 ```
 
@@ -69,12 +70,18 @@ alpha_data <- list.files(path = "results", pattern = "^alpha_.*\\.tsv$", full.na
 ```{r alpha_diversity_plot, warning=FALSE, comments="", message=FALSE, fig.height=6, fig.width=10, fig.fullwidth=TRUE}
 alpha_data %>%
     pivot_longer(!c(dataset,Library,Species,Taxon,Sample,Extraction), names_to = "metric", values_to = "value") %>%
+    filter(metric %in% c("richness","neutral","phylogenetic")) %>%
     mutate(metric=factor(metric,levels=c("richness","neutral","phylogenetic"))) %>%
     mutate(Taxon=factor(Taxon,levels=c("Amphibian","Reptile","Mammal"))) %>%
     mutate(Extraction=factor(Extraction,levels=c("ZYMO","DREX","EHEX"))) %>%
-    ggplot(aes(x=Extraction,y=value))+ 
-        geom_boxplot() + 
-        facet_grid(metric ~ Taxon, scales = "free")
+    unique() %>%
+    ggplot(aes(x=Extraction,y=value, color=Species, group=Extraction)) + 
+        geom_boxplot(outlier.shape = NA, fill="#f4f4f4", color="#8c8c8c") + 
+        geom_jitter() + 
+        scale_color_manual(values=vertebrate_colors) +
+        facet_grid(metric ~ Taxon, scales = "free") +
+        theme_minimal() +
+        labs(y="Diversity",x="Extraction method")
 ```
 
 ### Richness
@@ -130,15 +137,16 @@ all_data %>%
 
 ```{r damr_plot, warning=FALSE, comments="", message=FALSE, fig.height=4, fig.width=10, fig.fullwidth=TRUE}
 all_data %>%
-    select(dataset,Extraction,microbial_fraction,MAG_mapping_percentage,Taxon) %>%
+    select(dataset,Extraction,microbial_fraction,MAG_mapping_percentage,Taxon,Sample,Species) %>%
     mutate(damr=pmin(1,MAG_mapping_percentage/(microbial_fraction*100))) %>%
     mutate(damr=ifelse(is.na(damr),0,damr)) %>%
     unique() %>%
-    mutate(Taxon=factor(Taxon,levels=c("Amphibian","Reptile","Mammal","Bird","Control"))) %>%
-    mutate(Extraction=factor(Extraction,levels=c("ZYMO","DREX","EHEX"))) %>%
-    ggplot(aes(x=Extraction,y=damr))+ 
-        geom_boxplot() + 
+    ggplot(aes(x=Extraction,y=damr, color=Species, group=Extraction)) + 
+        geom_boxplot(outlier.shape = NA, fill="#f4f4f4", color="#8c8c8c") + 
+        geom_jitter() + 
+        scale_color_manual(values=vertebrate_colors) +
         facet_grid(. ~ Taxon, scales = "free") +
+        theme_minimal() +
         labs(y="Domain-adjusted mapping rate",x="Extraction method")
 ```
 
@@ -267,7 +275,7 @@ genome_counts_filt %>%
 ggsave(paste0("figures/barplot_",genus,".pdf"))
 ```
 
-```{r nmds_combined, warning=FALSE, comments="", message=FALSE, fig.height=8, fig.width=10, fig.fullwidth=TRUE}
+```{r nmds_combined, warning=FALSE, comments="", message=FALSE, fig.height=6, fig.width=10, fig.fullwidth=TRUE}
 genome_counts_NMDS <- genome_counts_filt %>%
             column_to_rownames(var="genome") %>%
             select(where(~!all(. == 0))) %>%
@@ -282,7 +290,7 @@ genome_counts_NMDS <- genome_counts_filt %>%
 
 genome_counts_NMDS %>%
             ggplot(., aes(x=NMDS1,y=NMDS2, color=Species, shape=Extraction)) +
-                scale_color_manual(values=c("#92d4d1","#9cba7b","#d9d88d","#40bfb8","#73a842","#c2c935","#bf7777","#4a7135","#25968e","#aa3333","#5e1717","#8d8e35")) +
+                scale_color_manual(values=vertebrate_colors) +
                 geom_point(size=3, alpha=0.8) +
                 geom_segment(aes(x=sample_x, y=sample_y, xend=NMDS1, yend=NMDS2), alpha=0.2) +
                 theme_classic() +

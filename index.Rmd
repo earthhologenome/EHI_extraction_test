@@ -81,3 +81,22 @@ library(distillR)
 library(ANCOMBC)
 library(lme4)
 ```
+
+### Color codes
+
+```{r create_color_code, warning=FALSE, comments="", message=FALSE}
+vertebrate_colors <- c(`Calotriton asper`="#157a73",
+                    `Lissotriton helveticus`="#47bfb6",
+                    `Salamandra atra`="#92d4d1",
+                    `Chalcides striatus`="#4a7015",
+                    `Natrix astreptophora`="#7ea845",
+                    `Podarcis muralis`="#b9d98d",
+                    `Plecotus auritus`="#5e1717",
+                    `Sciurus carolinensis`="#aa3333",
+                    `Trichosurus vulpecula`="#bf7777",
+                    `Geospizopsis unicolor`="#9e6b24",
+                    `Perisoreus infaustus`="#dba55a",
+                    `Zonotrichia capensis`="#dbbd93",
+                    `Extraction control`="#7a7a7a",
+                    `Library control`="#4a4a4a")
+```

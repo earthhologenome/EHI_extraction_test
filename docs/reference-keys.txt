@@ -2,6 +2,7 @@ introduction
 prepare-the-r-environment
 environment
 libraries
+color-codes
 laboratory-performance
 load-data
 dna-yield

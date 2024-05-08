@@ -63,7 +63,6 @@ genomics_data <- read_tsv("data/host_genomics_stats.tsv")
 
 ```{r data_merge, warning=FALSE, comments="", message=FALSE, echo=FALSE, eval=FALSE}
 all_data <- sample_metadata %>%
-    mutate(Taxon=factor(Taxon,levels=c("Amphibian","Bird","Mammal","Reptile","Control"))) %>%
     left_join(extraction_data, by=join_by(dataset==dataset)) %>%
     left_join(library_data, by=join_by(dataset==dataset)) %>%
     left_join(indexing_data, by=join_by(dataset==dataset)) %>%
@@ -78,7 +77,29 @@ write_tsv(all_data, file="data/all_data.tsv")
 Load data previously compiled from the database:
 
 ```{r load_laboroty_data, warning=FALSE, comments="", message=FALSE}
-all_data <- read_tsv("data/all_data.tsv")
+all_data <- read_tsv("data/all_data.tsv") %>%
+    mutate(Taxon=factor(Taxon,levels=c("Amphibian",
+                                       "Reptile",
+                                       "Mammal",
+                                       "Bird",
+                                       "Control"))) %>%
+    mutate(Extraction=factor(Extraction,levels=c("ZYMO",
+                                                 "DREX",
+                                                 "EHEX"))) %>%
+    mutate(Species=factor(Species,levels=c("Calotriton asper",
+                                           "Lissotriton helveticus",
+                                           "Salamandra atra",
+                                           "Chalcides striatus",
+                                           "Natrix astreptophora",
+                                           "Podarcis muralis",
+                                           "Plecotus auritus",
+                                           "Sciurus carolinensis",
+                                           "Trichosurus vulpecula",
+                                           "Geospizopsis unicolor",
+                                           "Perisoreus infaustus",
+                                           "Zonotrichia capensis",
+                                           "Extraction control",
+                                           "Library control")))
 ```
 
 ## DNA yield
@@ -87,6 +108,7 @@ Total amount of DNA extracted from the 150 ul subset of the bead-beaten sample.
 
 ```{r yield_summary, warning=FALSE, comments="", message=FALSE}
 all_data %>%
+    select(Extraction,extract,Taxon) %>%
     group_by(Taxon,Extraction) %>%
     summarise(value = sprintf("%.0f±%.0f", mean(extract), sd(extract))) %>%
     pivot_wider(names_from = Extraction, values_from = value) %>%
@@ -95,9 +117,14 @@ all_data %>%
 
 ```{r yield_plot, warning=FALSE, comments="", message=FALSE, fig.height=4, fig.width=10, fig.fullwidth=TRUE}
 all_data %>%
-    ggplot(aes(x=Extraction,y=extract))+ 
-        geom_boxplot() + 
+    select(Library,Species,Extraction,extract,Taxon) %>%
+    unique() %>%
+    ggplot(aes(x=Extraction, y=extract, color=Species, group=Extraction))+ 
+        geom_boxplot(outlier.shape = NA, fill="#f4f4f4", color="#8c8c8c") + 
+        geom_jitter() + 
+        scale_color_manual(values=vertebrate_colors) +
         facet_grid(. ~ Taxon, scales = "free") +
+        theme_minimal() +
         labs(y="DNA yield (ng)",x="Extraction method")
 ```
 
@@ -109,9 +136,17 @@ all_data  %>%
     tt()
 ```
 
+> DNA yields vary across host taxa.
+> - Amphibians and mammals yield the highest total amounts of DNA.
+> - Birds yield the lowest amounts of DNA.
+> - Controls yield barely quantifiable DNA.
+> EHEX yields highest amounts of total DNA.
+> - DNA recovery raks of extraction methods are maintained across taxa.
+
 ## Library performance
 
-Number of PCR cycles required for reaching the plateau phase of the indexing PCR. 
+Number of PCR cycles required for reaching the plateau phase of the indexing PCR. A higher number indicates a lower amount of amplifiable library template. When weighed by the input DNA, the required number of PCR cycles serves as an estimator of library performance.
+
 ```{r pcr_summary, warning=FALSE, comments="", message=FALSE}
 all_data %>%
     group_by(Taxon,Extraction) %>%
@@ -122,9 +157,15 @@ all_data %>%
 
 ```{r pcr_plot, warning=FALSE, comments="", message=FALSE, fig.height=4, fig.width=10, fig.fullwidth=TRUE}
 all_data %>%
-    ggplot(aes(x=Extraction,y=pcr))+ 
-        geom_boxplot() + 
+    select(Library,Species,Extraction,pcr,Taxon) %>%
+    unique() %>%
+    ggplot(aes(x=Extraction,y=pcr, color=Species, group=Extraction))+ 
+        scale_y_reverse() +
+        geom_boxplot(outlier.shape = NA, fill="#f4f4f4", color="#8c8c8c") + 
+        geom_jitter() + 
+        scale_color_manual(values=vertebrate_colors) +
         facet_grid(. ~ Taxon, scales = "free") +
+        theme_minimal() +
         labs(y="Optimal number of PCR cycles",x="Extraction method")
 ```
 
