@@ -105,3 +105,27 @@ all_data %>%
     broom.mixed::tidy() %>%
     tt()
 ```
+
+## Breadth vs. coverage
+
+```{r host_breadth_coverage_plot, warning=FALSE, comments="", message=FALSE, fig.height=4, fig.width=10, fig.fullwidth=TRUE}
+all_data_log <- all_data %>%
+    mutate(coverage_breadth_log=log(coverage_breadth)) %>%
+    mutate(coverage_depth_log=log(coverage_depth)) 
+
+lm_eq <- lm(coverage_breadth_log ~ coverage_depth_log, data = all_data_log %>% filter(coverage_depth_log != -Inf ,coverage_breadth_log != -Inf))
+coef <- coef(lm_eq)
+all_data_log$coverage_breadth_log_pred <- coef[1] + coef[2] * all_data_log$coverage_depth_log
+
+
+all_data_log %>%
+    select(dataset,Extraction,coverage_depth_log,coverage_breadth_log,coverage_breadth_log_pred,Taxon,Species,Sample) %>%
+    unique() %>%
+    ggplot(aes(x=coverage_depth_log,y=coverage_breadth_log)) + 
+        geom_point(aes(color=Species, shape=Extraction),size=3, alpha=0.9) + 
+        geom_segment(aes(x = coverage_depth_log, y = coverage_breadth_log, xend = coverage_depth_log, yend = coverage_breadth_log_pred, color=Species), alpha=0.9)+
+        geom_smooth(method = lm, se = FALSE, color="#666666") +
+        scale_color_manual(values=vertebrate_colors) +
+        theme_minimal() +
+        labs(y="Breadth of coverage (%)",x="Depth of coverage")
+```

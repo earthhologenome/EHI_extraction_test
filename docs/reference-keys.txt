@@ -14,6 +14,7 @@ genomic-data
 read-duplicates
 depth-of-coverage
 breadth-of-coverage
+breadth-vs.-coverage
 metagenomic-data
 library-complexity
 alpha-diversity
@@ -105,3 +106,14 @@ community-barplot-11
 alpha-diversity-11
 beta-diversity-10
 variance-partitioning-9
+sample-digestion
+instruments-plasticware-and-reagents
+protocol
+drex-dna-extraction
+instruments-plasticware-and-reagents-1
+preparation-of-working-reagents
+protocol-1
+ehex-dna-extraction
+instruments-plasticware-and-reagents-2
+preparation-of-working-reagents-1
+protocol-2

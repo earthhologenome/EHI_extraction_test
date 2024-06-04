@@ -174,15 +174,18 @@ variance_data <- list.files(path = "results", pattern = "^var_.*\\.tsv$", full.n
 variance_data %>% summarise(mean=mean(r2),sd=sd(r2))
 ```
 
-```{r variance_partitioning_plot, warning=FALSE, comments="", message=FALSE, fig.height=4, fig.width=10, fig.fullwidth=TRUE}
+```{r variance_partitioning_plot, warning=FALSE, comments="", message=FALSE, fig.height=6, fig.width=6}
 variance_data %>%
-    left_join(sample_metadata %>% select(Species,Taxon) %>% unique(),by=join_by(species==Species)) %>%
-    mutate(metric=factor(metric,levels=c("richness","neutral","phylogenetic"))) %>%
+    left_join(all_data %>% select(Species,Taxon) %>% unique(),by=join_by(species==Species)) %>%
+    mutate(metric=factor(metric,levels=c("phylogenetic","neutral","richness"))) %>%
     mutate(Taxon=factor(Taxon,levels=c("Amphibian","Reptile","Mammal"))) %>%
-    ggplot(aes(x=Taxon,y=r2)) +
-    geom_boxplot()+
-    ylim(0,1)+
-    facet_grid(. ~ metric, scales = "free")
+    ggplot(aes(x=r2,y=metric)) +
+        geom_boxplot(outlier.shape = NA, fill="#f4f4f4", color="#8c8c8c") + 
+        geom_jitter(aes(color=species))+
+        scale_color_manual(values=vertebrate_colors) +
+        xlim(0,0.5)+
+        theme_minimal() +
+        labs(y="Diversity metric",x="Explained variance")
 ```
 
 ```{r variance_partitioning_summary, warning=FALSE, comments="", message=FALSE}
@@ -193,7 +196,6 @@ variance_data %>%
 ```
 
 ## Combined community analysis
-
 
 ```{r data_combined, warning=FALSE, comments="", message=FALSE}
 species="combined"
@@ -248,12 +250,33 @@ phylum_colors <- read_tsv("https://raw.githubusercontent.com/earthhologenome/EHI
     pull()
 
 # Stacked barplot
-genome_counts_filt %>%
+genome_counts %>%
     mutate_at(vars(-genome), funs(./sum(., na.rm = TRUE)))  %>% #apply TSS nornalisation
     pivot_longer(-genome, names_to = "dataset", values_to = "count") %>%
     left_join(., genome_metadata, by = join_by(genome == genome)) %>% #append taxonomy
-    left_join(., sample_metadata, by = join_by(dataset == dataset)) %>% #append taxonomy
-    mutate(Extraction=factor(Extraction,levels=c("ZYMO","DREX","EHEX"))) %>%
+    left_join(., sample_metadata, by = join_by(dataset == dataset)) %>%
+    mutate(Taxon=factor(Taxon,levels=c("Amphibian",
+                                       "Reptile",
+                                       "Mammal",
+                                       "Bird",
+                                       "Control"))) %>%
+    mutate(Extraction=factor(Extraction,levels=c("ZYMO",
+                                                 "DREX",
+                                                 "EHEX"))) %>%
+    mutate(Species=factor(Species,levels=c("Calotriton asper",
+                                           "Lissotriton helveticus",
+                                           "Salamandra atra",
+                                           "Chalcides striatus",
+                                           "Natrix astreptophora",
+                                           "Podarcis muralis",
+                                           "Plecotus auritus",
+                                           "Sciurus carolinensis",
+                                           "Trichosurus vulpecula",
+                                           "Geospizopsis unicolor",
+                                           "Perisoreus infaustus",
+                                           "Zonotrichia capensis",
+                                           "Extraction control",
+                                           "Library control"))) %>%
     filter(Taxon != "Control") %>%
     ggplot(., aes(x=dataset,y=count,fill=phylum, group=phylum))+ #grouping enables keeping the same sorting of taxonomic units
           geom_bar(stat="identity", colour="white", linewidth=0.1)+ #plot stacked bars with white borders
@@ -268,14 +291,13 @@ genome_counts_filt %>%
                 panel.grid.major = element_blank(),
                 panel.grid.minor = element_blank(),
                 axis.line = element_line(linewidth = 0.5, linetype = "solid", colour = "black"),
-                legend.position="none",
                 legend.title=element_blank(),
                 panel.spacing = unit(0, "lines"))
 
 ggsave(paste0("figures/barplot_",genus,".pdf"))
 ```
 
-```{r nmds_combined, warning=FALSE, comments="", message=FALSE, fig.height=6, fig.width=10, fig.fullwidth=TRUE}
+```{r nmds_combined, warning=FALSE, comments="", message=FALSE, fig.height=4, fig.width=10, fig.fullwidth=TRUE}
 genome_counts_NMDS <- genome_counts_filt %>%
             column_to_rownames(var="genome") %>%
             select(where(~!all(. == 0))) %>%
@@ -297,4 +319,3 @@ genome_counts_NMDS %>%
                 theme(legend.position="right", legend.box="vertical") +
                 guides(color=guide_legend(title="Species"))
 ```
-

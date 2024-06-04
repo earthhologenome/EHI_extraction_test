@@ -25,6 +25,7 @@ all_data %>%
 ```{r sequencing_depth_plot, warning=FALSE, comments="", message=FALSE, fig.height=4, fig.width=10, fig.fullwidth=TRUE}
 all_data %>%
     select(Library,Species,Extraction,bases_pre_fastp,Taxon) %>%
+    mutate(bases_pre_fastp=bases_pre_fastp/1000000000) %>%
     unique() %>%
     ggplot(aes(x=Extraction,y=bases_pre_fastp, color=Species, group=Extraction)) + 
         geom_boxplot(outlier.shape = NA, fill="#f4f4f4", color="#8c8c8c") + 
@@ -32,7 +33,7 @@ all_data %>%
         scale_color_manual(values=vertebrate_colors) +
         facet_grid(. ~ Taxon, scales = "free") +
         theme_minimal() +
-        labs(y="DNA yield (ng)",x="Extraction method")
+        labs(y="Sequencing depth (Gb)",x="Extraction method")
 ```
 
 ```{r sequencing_depth_test, warning=FALSE, comments="", message=FALSE}
@@ -65,7 +66,7 @@ all_data %>%
         scale_color_manual(values=vertebrate_colors) +
         facet_grid(. ~ Taxon, scales = "free") +
         theme_minimal() +
-        labs(y="High-quality d data (%)",x="Extraction method")
+        labs(y="High-quality data (%)",x="Extraction method")
 ```
 
 ```{r qc_test, warning=FALSE, comments="", message=FALSE}
