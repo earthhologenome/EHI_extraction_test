@@ -1,0 +1,122 @@
+# DREX DNA extraction {#drex-dna-extraction}
+DNA extraction involves isolating DNA molecules from the rest of organic materials in the mixture, as well as removing inhibitors such as polysaccharides, proteins and bile salts, which can affect downstream enzymatic reactions, such as adaptor ligation or PCR amplification. The DNA extraction procedure employed in the EHI involves DNA isolation using silica magnetic beads combined with solid-phase reversible immobilisation (SPRI) to remove as many inhibitors as possible. This technique takes advantage of the binding properties of silica magnetic beads to selectively capture DNA fragments, followed by the principle of SPRI to efficiently remove impurities and elute the purified DNA.
+
+## Instruments, plasticware and reagents
+### Instruments {-}
+- Block Heater-Shaker such as ThermoMixer C (Eppendorf) (for tissue sample)
+- Magnet compatible with V-Bottom 96-well plates such as Magnum™ EX Universal 96-well Magnet Plate (Alpaca, SKU: A000380)
+- Fluorometer such as Qubit Flex Fluorometer (Invitrogen)
+- SAFE® Screw Cap De-/Capper (LVL technologies)
+- SAFE® 2D/1D Code Reader (LVL technologies)
+
+### Plasticware {-}
+| Item      | Brand | Catalogue number        |
+| :---        |    :----:   |          ---: |
+| Millex-GP 0.22 µm Syringe Filter | Millipore | [SLGV013SL](https://www.sigmaaldrich.com/DK/en/product/mm/slgv013sl?gclid=Cj0KCQjwldKmBhCCARIsAP-0rfzjwr8Qj7HphldqMnc3nU_7QciO-EL5mXhqyq7SAlieGsQ5U0fW6YkaAmYnEALw_wcB&gclsrc=aw.ds) |
+| Syringe (Single packed disposable sterile) |    |      |
+| 96-well V-shaped 1ml microplate | 4titude  | [4ti-0125](https://www.azenta.com/products/96-round-deep-well-storage-microplate-magnetic-separators)  |
+| XSX 200 - 2D Biobanking Tubes | LVL technologies  | [1C-X02-BL-CW-B-L](https://www.lvl-technologies.com/en/sample-storage/safe-2d-tubes-engl/safe-96-xt-2D) |
+| Self-adhesive aluminium foil | LVL technologies  | [AF100Plus](https://www.lvl-technologies.com/en/sample-storage/sealing-foils/aluminium-self-adhesive)  |
+| Thin-walled polypropylene tubes with very low fluorescence compatible with Fluorometer such as Qubit Flex Assay Tube Strips | Invitrogen  | [Q33252](https://www.thermofisher.com/order/catalog/product/Q33252)  |
+
+### Stock reagents {-}
+| Reagent      | Brand | Catalogue number        | Storage       |
+| :---        |    :----:   |          ---: |          ---: |
+| Deionized ultrapure water (ddH2O) | Bionordika  | [BN-51100](https://www.bionordika.se/bn-51100/)    |   25 ºC   |
+| Absolute ethanol, EtOH |    |     | 25 ºC |
+| BioUltra Citric acid  | Sigma-Aldrich  | [27487](https://www.sigmaaldrich.com/DK/en/product/sigma/27487)    |  25 ºC  |
+| BioUltra Citrate Concentrate Solution (1M) | Sigma-Aldrich  | [83273-250ML-F](https://www.sigmaaldrich.com/DK/en/product/sigma/83273)    |  25 ºC   |
+| Guanidine thiocyanate (GuSCN)  |   Sigma-Aldrich |   [G9277](https://www.sigmaaldrich.com/DK/en/product/sigma/g9277) | 25 ºC |
+| N-Lauroylsarcosine sodium salt solution | Sigma-Aldrich | [L7414-50ML](https://www.sigmaaldrich.com/DK/en/product/sigma/l7414) | RT |
+| BioReagent 2-Isopropanol  | Sigma-Aldrich  | [I9516-500ML](https://www.sigmaaldrich.com/DK/en/product/sigma/i9516) | 25 ºC |
+| Hydrochloric acid solution (1M), HCl | Sigma-Aldrich  |  | 25 ºC |
+| BioUltra Sodium Hydroxide solution (10M), NaOH | Sigma-Aldrich |  [72068-100ML](https://www.sigmaaldrich.com/DK/en/product/sigma/72068) | 25 ºC |
+| TWEEN® 20 | Sigma-Aldrich | [P9416-50ML](https://www.sigmaaldrich.com/DK/en/product/sigma/p9416) | 25 ºC |
+| Silica magnetic beads   | G-Biosciences    | [786-916](https://astralscientific.com.au/products/786-916)           |  4ºC  |
+| Elution Buffer (EB) | Qiagen |  [19086](https://www.qiagen.com/us/products/discovery-and-translational-research/lab-essentials/buffers-reagents/buffer-eb) | 25 ºC |
+| Qubit DNA HS Assay Kit  | Invitrogen | [Q32851](https://www.thermofisher.com/order/catalog/product/Q32851) | 4 ºC  |
+| Qubit DNA BR Assay Kit  | Invitrogen | [Q32850](https://www.thermofisher.com/order/catalog/product/Q32851)  | 4 ºC  |
+
+## Preparation of working reagents
+### Citrate buffer (0.1 M, ph 5.0) {-}
+To prepare a stock of 50ml:
+
+1. In a 50 mL centrifuge tube, prepare Citric acid stock solution (1 M) by dissolving 9.60 g of citric acid powder (molecular weight = 192.12 g/mol) in H2O to a final volume of 50 mL.
+2. In a 50 mL centrifuge tube, dilute Citric acid stock solution 1:10 to reach a 0.1 M solution with H2O.
+3. In a 50 mL centrifuge tube, dilute Trisodium citrate/Citrate Concentrate solution (1 M) 1:10 to reach a 0.1 M solution with H2O.
+4. In a 50 mL centrifuge tube, combine 17.5 mL of Citric acid solution (0.1 M) with 32.5 mL of Trisodium citrate/Citrate Concentrate solution (0.1 M).
+5. Check that pH is around 5.0 and adjust if needed using NAOH (10M).
+
+### Buffer B {-}
+To prepare a stock of 50ml:
+
+1. Weigh 29.54 g of Guanidine thiocyanate (GuSCN) using a large weighing boat.
+2. Add the GuSCN to a sterile PC or glass bottle (150 mL).
+3. Add 20 mL H2O, 5 mL of Citrate buffer (0.1 M) and a sterile stirring bar.
+4. Place the solution (approximately 45 mL) on the magnetic stirrer to dissolve completely.
+5. Add 2.5 mL of N-Lauroylsarcosine sodium salt solution (20%, pH 7-9).
+6. Add H2O to a final volume of 50 mL.
+7. Filter with a 0.22 µm Syringe Filter.
+8. Check that pH is around 5.0 and adjust if needed using NAOH (10M).
+
+### Buffer C - DNA fraction {-}
+To prepare a stock of 50ml:
+
+1. Weigh 11.82 g of Guanidine thiocyanate (GuSCN) using a large weighing boat.
+2. Add the GuSCN to a sterile PC or glass bottle (150 mL).
+3. Add 5 mL H2O, 5 mL of Citrate buffer (0.1 M) and a sterile stirring bar.
+4. Place the solution on the magnetic stirrer to dissolve completely.
+5. Add 30 mL of Isopropanol (2-Propanol).
+6. Add 25 µl of Tween20.
+7. Filter with a 0.22 µm Syringe Filter. Filter slowly to avoid filter overflowing.
+8. Check that pH is around 5.0 and adjust if needed using NAOH (10M).
+
+### EBT buffer {-}
+To prepare a stock of 50ml:
+
+1. In a 50 mL centrifuge tube, mix 50 ml of EB buffer with 25 µl of Tween20.
+
+### Silica magnetic beads and buffer aliquots {-}
+
+1. Switch on the Thermo Mixer and set to 15 minutes, 10 C, 1500 rpm [See 'Protocol' step 5].
+2. Equilibrate* the silica magnetic beads to room temperature for 30 min.
+3. Create the aliquots of reagents needed according to the table below. Prepare reagents for around 10% overage samples. Ensure that beads are thoroughly resuspended before taking an aliquot.
+
+| Working reagent           | Volume per sample |
+| :---                      |    :----:         |
+| Beads - DNA fraction      | 15 µl             |
+| Buffer B                  | 200 µl            |
+| Buffer C - DNA fraction   | 200 µl            |
+| 80% EtOH - DNA washing    | 400 µl            |
+
+4. Place the tube containing silica beads on a magnetic rack and wait until the beads are immobilised on the wall, and the supernatant is clear.
+5. Discard the clear supernatant.
+6. Add 2 mL of Tris-EDTA (TE) buffer to the tube. The TE buffer volume may be reduced according to the volume of the beads needed. The beads must be submerged during the wash step.
+7. Discard the supernatant.
+8. Repeat steps 6 and 7.
+9. Transfer “Beads - DNA fraction” to Buffer B. Mix well (by vortexing if you can avoid bubbles) the mixture “Beads - Buffer B”.
+
+*Store the silica magnetic beads (G-Biosciences) at 4°C. Do not freeze the silica magnetic beads (G-Biosciences) or store them near a magnetic source.
+
+
+## Protocol
+1. Ensure that the mixture “Beads - Buffer B” is properly mixed. Transfer 200 µl of the mixture to each well of the Deep Well microplate.
+2. Ensure samples have entirely thawed. Vortex and centrifuge/spin down the LVL rack for 30 seconds to remove any liquid from the LVL tube lid.
+3. Transfer 200 μL of each sample to the Deep Well microplate (from now refered to DNA plate).
+4. Seal the DNA plate with a self-adhesive aluminium foil and spin down.
+5. Incubate DNA plate: for 15 minutes at 10ºC with shaking at 1500 rpm. Spin down shortly at 1000 g.
+6. Place the DNA plate on a magnetic rack and wait until the supernatant is clear. Discard the supernatant.
+7. Remove the DNA plate from the magnet. Add 200 µl of Buffer C to each well and mix well by pipetting. Cover the DNA plate with an aluminium seal and spin down shortly.
+8. Place the DNA plate on a magnetic rack and wait until the supernatant is clear. Discard the supernatant.
+9. Remove the DNA plate from the magnet. Add 200 µl of 80% EtOH and mix well by pipetting.
+10. Place the DNA plate on the magnetic rack and wait until the supernatant is clear. Discard the supernatant.
+11. Repeat step 9, briefly spin down the plate to bring EtOH residues down and repeat step 10.
+12. Ensure that all residual ethanol is removed. Dry the beads for at least 5 minutes.
+13. Remove the DNA plate from the magnet. Add 50 µl of EBT buffer. Cover the DNA plate with an aluminium seal and spin down shortly.
+14. Incubate DNA plate: 5 minutes at 25 ºC with shaking at 1500 rpm.
+15. Spin down the DNA plate shortly at 1000 g.
+16. Place the DNA plate on a magnetic rack and wait until the supernatant is clear.
+17. Aspirate slowly (to avoid bead transfer) and transfer the supernatant with eluted DNA to a new plate.
+18. Use 2 µl to selectively quantify DNA using the Qubit DNA HS or BR Assay Kit and a Qubit Fluorometer.
+19. Place the plate on a magnetic rack. Transfer the DNA extract to a 200 µl LVL tube.
+20. Store the 200 µl LVL tube plate at -20ºC until further processing.

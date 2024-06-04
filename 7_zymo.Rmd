@@ -1,0 +1,50 @@
+# ZYMO DNA extraction {#Zymo-dna-extraction}
+DNA extraction involves isolating DNA molecules from the rest of organic materials in the mixture, as well as removing inhibitors such as polysaccharides, proteins and bile salts, which can affect downstream enzymatic reactions, such as adaptor ligation or PCR amplification. The DNA extraction procedure employed in the EHI involves DNA isolation using silica magnetic beads combined with solid-phase reversible immobilisation (SPRI) to remove as many inhibitors as possible. This technique takes advantage of the binding properties of silica magnetic beads to selectively capture DNA fragments, followed by the principle of SPRI to efficiently remove impurities and elute the purified DNA.
+
+## Instruments, plasticware and reagents
+### Instruments {-}
+- Block Heater-Shaker such as ThermoMixer C (Eppendorf) (for tissue sample)
+- Magnet compatible with V-Bottom 96-well plates such as Magnum™ EX Universal 96-well Magnet Plate (Alpaca, SKU: A000380)
+- Fluorometer such as Qubit Flex Fluorometer (Invitrogen)
+- SAFE® Screw Cap De-/Capper (LVL technologies)
+- SAFE® 2D/1D Code Reader (LVL technologies)
+
+### Plasticware {-}
+| Item      | Brand | Catalogue number        |
+| :---        |    :----:   |          ---: |
+| 96-well V-shaped 1ml microplate | 4titude  | [4ti-0125](https://www.azenta.com/products/96-round-deep-well-storage-microplate-magnetic-separators)  |
+| XSX 200 - 2D Biobanking Tubes | LVL technologies  | [1C-X02-BL-CW-B-L](https://www.lvl-technologies.com/en/sample-storage/safe-2d-tubes-engl/safe-96-xt-2D) |
+| Self-adhesive aluminium foil | LVL technologies  | [AF100Plus](https://www.lvl-technologies.com/en/sample-storage/sealing-foils/aluminium-self-adhesive)  |
+| Thin-walled polypropylene tubes with very low fluorescence compatible with Fluorometer such as Qubit Flex Assay Tube Strips | Invitrogen  | [Q33252](https://www.thermofisher.com/order/catalog/product/Q33252)  |
+
+### Stock reagents {-}
+| Reagent      | Brand | Catalogue number        | Storage       |
+| :---        |    :----:   |          ---: |          ---: |
+| Deionized ultrapure water (ddH2O) | Bionordika  | [BN-51100](https://www.bionordika.se/bn-51100/)    |   25 ºC   |
+| ZymoBIOMICS MagBead DNA/RNA | Zymo Research |  [R2135/R2136](https://zymoresearch.eu/products/zymobiomics-magbead-dna-rna) | 25 ºC |
+| Qubit DNA HS Assay Kit  | Invitrogen | [Q32851](https://www.thermofisher.com/order/catalog/product/Q32851) | 4 ºC  |
+| Qubit DNA BR Assay Kit  | Invitrogen | [Q32850](https://www.thermofisher.com/order/catalog/product/Q32851)  | 4 ºC  |
+
+
+
+## Protocol
+Total Nucleic Acid Purification
+1. Add 200 µl (1 volume) DNA/RNA Lysis Buffer to 200 µl sample and mix well.
+2. Add 400 µl ethanol (95-100%) to the sample and mix well.
+3. Add 30 µl ZymoBIOMICS™ MagBinding Beads* and mix well for 20 minutes (21ºC, 1000 rpm).
+*ZymoBIOMICS™ MagBinding Beads settle quickly, ensure that beads are
+kept in suspension while dispensing.
+4. Transfer the plate/tube to the magnetic stand2 until beads have pelleted, then aspirate and discard the cleared supernatant.
+5. Add 500 µl MagBead DNA/RNA Wash 1 and mix well. Pellet the beads and discard the supernatant.
+6. Add 500 µl MagBead DNA/RNA Wash 2 and mix well. Pellet the beads and discard the supernatant.
+7. Add 500 µl ethanol (95-100%) and mix well. Pellet the beads and discard the supernatant.
+8. Repeat step 7.
+9. Dry the beads for 10 minutes or until dry.
+10. To elute DNA/RNA from the beads, add 50 µl ZymoBIOMICS™ DNase/RNase-Free Water and mix well for 5 minutes.
+11. Transfer the plate/tube to the magnetic stand until beads have pelleted, then aspirate and dispense the eluted DNA/RNA to a new plate/tube. The eluted DNA/RNA can be used immediately or stored frozen.
+12. Use 2 µl to selectively quantify DNA using the Qubit DNA HS or BR Assay Kit and a Qubit Fluorometer.
+12. Place the plate on the magnetic rack. 
+13. Transfer the Nucleic Acid extract to a 200 µl LVL tube. 
+14. Store the 200 µl LVL tube plate at -80ºC until further processing.
+
+
