@@ -31,10 +31,12 @@ all_data %>%
 all_data %>%
     select(dataset,Sample,Species,Extraction,duplicates,Taxon) %>%
     filter(Taxon != "Control") %>%
-    lmerTest::lmer(duplicates ~ Extraction + (1 | Sample) + (1 | Species), data = ., REML = FALSE) %>%
-    broom.mixed::tidy() %>%
-    tt()
+    lmerTest::lmer(duplicates ~ Extraction * Taxon + (1 | Sample) + (1 | Species), data = ., REML = FALSE) %>%
+    plot()
+    #anova()
+    #r.squaredGLMM() 
 ```
+
 
 ## Depth of coverage
 

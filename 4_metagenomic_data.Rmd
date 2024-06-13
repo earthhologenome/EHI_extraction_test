@@ -296,6 +296,12 @@ genome_counts %>%
 
 ggsave(paste0("figures/barplot_",genus,".pdf"))
 ```
+```{r permanova_combined, warning=FALSE, comments="", message=FALSE, fig.height=4, fig.width=10, fig.fullwidth=TRUE}
+sample_dist <- genome_counts_filt %>%
+            column_to_rownames(var="genome") %>%
+            select(where(~!all(. == 0))) %>%
+            hillpair(.,q=1, metric="C", out="dist")
+```
 
 ```{r nmds_combined, warning=FALSE, comments="", message=FALSE, fig.height=4, fig.width=10, fig.fullwidth=TRUE}
 genome_counts_NMDS <- genome_counts_filt %>%

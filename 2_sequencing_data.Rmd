@@ -39,9 +39,8 @@ all_data %>%
 ```{r sequencing_depth_test, warning=FALSE, comments="", message=FALSE}
 all_data  %>%
     filter(Taxon != "Control") %>%
-    lmerTest::lmer(bases_post_fastp ~ Extraction + (1 | Sample) + (1 | Species), data = ., REML = FALSE) %>%
-    broom.mixed::tidy() %>%
-    tt()
+    lmerTest::lmer(bases_post_fastp ~ Extraction * Taxon + (1 | Sample) + (1 | Species), data = .) %>%
+    summary() 
 ```
 
 ## Quality-filtering

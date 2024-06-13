@@ -29,6 +29,7 @@ DNA extraction involves isolating DNA molecules from the rest of organic materia
 
 ## Protocol
 Total Nucleic Acid Purification
+
 1. Add 200 µl (1 volume) DNA/RNA Lysis Buffer to 200 µl sample and mix well.
 2. Add 400 µl ethanol (95-100%) to the sample and mix well.
 3. Add 30 µl ZymoBIOMICS™ MagBinding Beads* and mix well for 20 minutes (21ºC, 1000 rpm).

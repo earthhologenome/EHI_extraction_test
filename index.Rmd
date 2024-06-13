@@ -80,6 +80,8 @@ library(hilldiv2)
 library(distillR)
 library(ANCOMBC)
 library(lme4)
+library(MuMIn)
+library(sjPlot)
 ```
 
 ### Color codes
