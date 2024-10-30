@@ -179,14 +179,14 @@ beta_diversity %>%
 ### Variance partitioning
 
 ```{r permanova_calotriton, warning=FALSE, comments="", message=FALSE}
-richness <-genome_counts_filt %>%
+richness <- genome_counts_filt %>%
             column_to_rownames(var="genome") %>%
             select(where(~!all(. == 0))) %>%
             hillpair(.,q=0, metric="C") %>%
             as.dist() %>%
             adonis2(formula = . ~ Sample + Extraction, data = sample_metadata %>% arrange(match(dataset,colnames(genome_counts_filt))), permutations = 999, method = "bray", sqrt.dist = TRUE) %>%
             broom::tidy() %>%
-            filter(term == "Extraction") %>%
+            filter(term == "Model") %>%
             select(R2) %>% pull()
 
 neutral <- genome_counts_filt %>%
@@ -196,7 +196,7 @@ neutral <- genome_counts_filt %>%
             as.dist() %>%
             adonis2(formula = . ~ Sample + Extraction, data = sample_metadata %>% arrange(match(dataset,colnames(genome_counts_filt))), permutations = 999, method = "bray", sqrt.dist = TRUE) %>%
             broom::tidy() %>%
-            filter(term == "Extraction") %>%
+            filter(term == "Model") %>%
             select(R2) %>% pull()
 
 phylogenetic <- genome_counts_filt %>%
@@ -206,7 +206,7 @@ phylogenetic <- genome_counts_filt %>%
             as.dist() %>%
             adonis2(formula = . ~ Sample + Extraction, data = sample_metadata %>% arrange(match(dataset,colnames(genome_counts_filt))), permutations = 999, method = "bray", sqrt.dist = TRUE) %>%
             broom::tidy() %>%
-            filter(term == "Extraction") %>%
+            filter(term == "Model") %>%
             select(R2) %>% pull()
 
 tibble(species=rep(species,3),metric=c("richness","neutral","phylogenetic"),r2=c(richness,neutral,phylogenetic)) %>%
@@ -397,7 +397,7 @@ richness <-genome_counts_filt %>%
             as.dist() %>%
             adonis2(formula = . ~ Sample + Extraction, data = sample_metadata %>% arrange(match(dataset,colnames(genome_counts_filt))), permutations = 999, method = "bray", sqrt.dist = TRUE) %>%
             broom::tidy() %>%
-            filter(term == "Extraction") %>%
+            filter(term == "Model") %>%
             select(R2) %>% pull()
 
 neutral <- genome_counts_filt %>%
@@ -407,7 +407,7 @@ neutral <- genome_counts_filt %>%
             as.dist() %>%
             adonis2(formula = . ~ Sample + Extraction, data = sample_metadata %>% arrange(match(dataset,colnames(genome_counts_filt))), permutations = 999, method = "bray", sqrt.dist = TRUE) %>%
             broom::tidy() %>%
-            filter(term == "Extraction") %>%
+            filter(term == "Model") %>%
             select(R2) %>% pull()
 
 phylogenetic <- genome_counts_filt %>%
@@ -417,7 +417,7 @@ phylogenetic <- genome_counts_filt %>%
             as.dist() %>%
             adonis2(formula = . ~ Sample + Extraction, data = sample_metadata %>% arrange(match(dataset,colnames(genome_counts_filt))), permutations = 999, method = "bray", sqrt.dist = TRUE) %>%
             broom::tidy() %>%
-            filter(term == "Extraction") %>%
+            filter(term == "Model") %>%
             select(R2) %>% pull()
 
 tibble(species=rep(species,3),metric=c("richness","neutral","phylogenetic"),r2=c(richness,neutral,phylogenetic)) %>%
@@ -608,7 +608,7 @@ richness <-genome_counts_filt %>%
             as.dist() %>%
             adonis2(formula = . ~ Sample + Extraction, data = sample_metadata %>% arrange(match(dataset,colnames(genome_counts_filt))), permutations = 999, method = "bray", sqrt.dist = TRUE) %>%
             broom::tidy() %>%
-            filter(term == "Extraction") %>%
+            filter(term == "Model") %>%
             select(R2) %>% pull()
 
 neutral <- genome_counts_filt %>%
@@ -618,7 +618,7 @@ neutral <- genome_counts_filt %>%
             as.dist() %>%
             adonis2(formula = . ~ Sample + Extraction, data = sample_metadata %>% arrange(match(dataset,colnames(genome_counts_filt))), permutations = 999, method = "bray", sqrt.dist = TRUE) %>%
             broom::tidy() %>%
-            filter(term == "Extraction") %>%
+            filter(term == "Model") %>%
             select(R2) %>% pull()
 
 phylogenetic <- genome_counts_filt %>%
@@ -628,7 +628,7 @@ phylogenetic <- genome_counts_filt %>%
             as.dist() %>%
             adonis2(formula = . ~ Sample + Extraction, data = sample_metadata %>% arrange(match(dataset,colnames(genome_counts_filt))), permutations = 999, method = "bray", sqrt.dist = TRUE) %>%
             broom::tidy() %>%
-            filter(term == "Extraction") %>%
+            filter(term == "Model") %>%
             select(R2) %>% pull()
 
 tibble(species=rep(species,3),metric=c("richness","neutral","phylogenetic"),r2=c(richness,neutral,phylogenetic)) %>%
@@ -1011,7 +1011,7 @@ richness <-genome_counts_filt %>%
             as.dist() %>%
             adonis2(formula = . ~ Sample + Extraction, data = sample_metadata %>% arrange(match(dataset,colnames(genome_counts_filt))), permutations = 999, method = "bray", sqrt.dist = TRUE) %>%
             broom::tidy() %>%
-            filter(term == "Extraction") %>%
+            filter(term == "Model") %>%
             select(R2) %>% pull()
 
 neutral <- genome_counts_filt %>%
@@ -1021,7 +1021,7 @@ neutral <- genome_counts_filt %>%
             as.dist() %>%
             adonis2(formula = . ~ Sample + Extraction, data = sample_metadata %>% arrange(match(dataset,colnames(genome_counts_filt))), permutations = 999, method = "bray", sqrt.dist = TRUE) %>%
             broom::tidy() %>%
-            filter(term == "Extraction") %>%
+            filter(term == "Model") %>%
             select(R2) %>% pull()
 
 phylogenetic <- genome_counts_filt %>%
@@ -1031,7 +1031,7 @@ phylogenetic <- genome_counts_filt %>%
             as.dist() %>%
             adonis2(formula = . ~ Sample + Extraction, data = sample_metadata %>% arrange(match(dataset,colnames(genome_counts_filt))), permutations = 999, method = "bray", sqrt.dist = TRUE) %>%
             broom::tidy() %>%
-            filter(term == "Extraction") %>%
+            filter(term == "Model") %>%
             select(R2) %>% pull()
 
 tibble(species=rep(species,3),metric=c("richness","neutral","phylogenetic"),r2=c(richness,neutral,phylogenetic)) %>%
@@ -1222,7 +1222,7 @@ richness <-genome_counts_filt %>%
             as.dist() %>%
             adonis2(formula = . ~ Sample + Extraction, data = sample_metadata %>% arrange(match(dataset,colnames(genome_counts_filt))), permutations = 999, method = "bray", sqrt.dist = TRUE) %>%
             broom::tidy() %>%
-            filter(term == "Extraction") %>%
+            filter(term == "Model") %>%
             select(R2) %>% pull()
 
 neutral <- genome_counts_filt %>%
@@ -1232,7 +1232,7 @@ neutral <- genome_counts_filt %>%
             as.dist() %>%
             adonis2(formula = . ~ Sample + Extraction, data = sample_metadata %>% arrange(match(dataset,colnames(genome_counts_filt))), permutations = 999, method = "bray", sqrt.dist = TRUE) %>%
             broom::tidy() %>%
-            filter(term == "Extraction") %>%
+            filter(term == "Model") %>%
             select(R2) %>% pull()
 
 phylogenetic <- genome_counts_filt %>%
@@ -1242,7 +1242,7 @@ phylogenetic <- genome_counts_filt %>%
             as.dist() %>%
             adonis2(formula = . ~ Sample + Extraction, data = sample_metadata %>% arrange(match(dataset,colnames(genome_counts_filt))), permutations = 999, method = "bray", sqrt.dist = TRUE) %>%
             broom::tidy() %>%
-            filter(term == "Extraction") %>%
+            filter(term == "Model") %>%
             select(R2) %>% pull()
 
 tibble(species=rep(species,3),metric=c("richness","neutral","phylogenetic"),r2=c(richness,neutral,phylogenetic)) %>%
@@ -1612,7 +1612,7 @@ richness <-genome_counts_filt %>%
             as.dist() %>%
             adonis2(formula = . ~ Sample + Extraction, data = sample_metadata %>% arrange(match(dataset,colnames(genome_counts_filt))), permutations = 999, method = "bray", sqrt.dist = TRUE) %>%
             broom::tidy() %>%
-            filter(term == "Extraction") %>%
+            filter(term == "Model") %>%
             select(R2) %>% pull()
 
 neutral <- genome_counts_filt %>%
@@ -1622,7 +1622,7 @@ neutral <- genome_counts_filt %>%
             as.dist() %>%
             adonis2(formula = . ~ Sample + Extraction, data = sample_metadata %>% arrange(match(dataset,colnames(genome_counts_filt))), permutations = 999, method = "bray", sqrt.dist = TRUE) %>%
             broom::tidy() %>%
-            filter(term == "Extraction") %>%
+            filter(term == "Model") %>%
             select(R2) %>% pull()
 
 phylogenetic <- genome_counts_filt %>%
@@ -1632,7 +1632,7 @@ phylogenetic <- genome_counts_filt %>%
             as.dist() %>%
             adonis2(formula = . ~ Sample + Extraction, data = sample_metadata %>% arrange(match(dataset,colnames(genome_counts_filt))), permutations = 999, method = "bray", sqrt.dist = TRUE) %>%
             broom::tidy() %>%
-            filter(term == "Extraction") %>%
+            filter(term == "Model") %>%
             select(R2) %>% pull()
 
 tibble(species=rep(species,3),metric=c("richness","neutral","phylogenetic"),r2=c(richness,neutral,phylogenetic)) %>%
@@ -1823,7 +1823,7 @@ richness <-genome_counts_filt %>%
             as.dist() %>%
             adonis2(formula = . ~ Sample + Extraction, data = sample_metadata %>% arrange(match(dataset,colnames(genome_counts_filt))), permutations = 999, method = "bray", sqrt.dist = TRUE) %>%
             broom::tidy() %>%
-            filter(term == "Extraction") %>%
+            filter(term == "Model") %>%
             select(R2) %>% pull()
 
 neutral <- genome_counts_filt %>%
@@ -1833,7 +1833,7 @@ neutral <- genome_counts_filt %>%
             as.dist() %>%
             adonis2(formula = . ~ Sample + Extraction, data = sample_metadata %>% arrange(match(dataset,colnames(genome_counts_filt))), permutations = 999, method = "bray", sqrt.dist = TRUE) %>%
             broom::tidy() %>%
-            filter(term == "Extraction") %>%
+            filter(term == "Model") %>%
             select(R2) %>% pull()
 
 phylogenetic <- genome_counts_filt %>%
@@ -1843,7 +1843,7 @@ phylogenetic <- genome_counts_filt %>%
             as.dist() %>%
             adonis2(formula = . ~ Sample + Extraction, data = sample_metadata %>% arrange(match(dataset,colnames(genome_counts_filt))), permutations = 999, method = "bray", sqrt.dist = TRUE) %>%
             broom::tidy() %>%
-            filter(term == "Extraction") %>%
+            filter(term == "Model") %>%
             select(R2) %>% pull()
 
 tibble(species=rep(species,3),metric=c("richness","neutral","phylogenetic"),r2=c(richness,neutral,phylogenetic)) %>%
@@ -2034,7 +2034,7 @@ richness <-genome_counts_filt %>%
             as.dist() %>%
             adonis2(formula = . ~ Sample + Extraction, data = sample_metadata %>% arrange(match(dataset,colnames(genome_counts_filt))), permutations = 999, method = "bray", sqrt.dist = TRUE) %>%
             broom::tidy() %>%
-            filter(term == "Extraction") %>%
+            filter(term == "Model") %>%
             select(R2) %>% pull()
 
 neutral <- genome_counts_filt %>%
@@ -2044,7 +2044,7 @@ neutral <- genome_counts_filt %>%
             as.dist() %>%
             adonis2(formula = . ~ Sample + Extraction, data = sample_metadata %>% arrange(match(dataset,colnames(genome_counts_filt))), permutations = 999, method = "bray", sqrt.dist = TRUE) %>%
             broom::tidy() %>%
-            filter(term == "Extraction") %>%
+            filter(term == "Model") %>%
             select(R2) %>% pull()
 
 phylogenetic <- genome_counts_filt %>%
@@ -2054,7 +2054,7 @@ phylogenetic <- genome_counts_filt %>%
             as.dist() %>%
             adonis2(formula = . ~ Sample + Extraction, data = sample_metadata %>% arrange(match(dataset,colnames(genome_counts_filt))), permutations = 999, method = "bray", sqrt.dist = TRUE) %>%
             broom::tidy() %>%
-            filter(term == "Extraction") %>%
+            filter(term == "Model") %>%
             select(R2) %>% pull()
 
 tibble(species=rep(species,3),metric=c("richness","neutral","phylogenetic"),r2=c(richness,neutral,phylogenetic)) %>%

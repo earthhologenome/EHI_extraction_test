@@ -43,7 +43,9 @@ preprocessing_data <- airtable("tblJfLRU2FIVz37Y1", "appQpr6MxnaiVHsHy") %>% #ge
 
 ```{r assembly_data, warning=FALSE, comments="", message=FALSE, echo=FALSE, eval=FALSE}
 assembly_data <- airtable("tblG6ZIvkYN844I97", "appQpr6MxnaiVHsHy") %>% #get base ID from Airtable browser URL
-  read_airtable(., fields = c("EHI_number_api","assembly_length","N50","L50","num_contigs","num_bins","metagenomic_bases"), id_to_col = TRUE) %>% #get 3 columns from MAGs table
+  read_airtable(., fields = c("EHI_number_api","AB_batch_api","assembly_length","N50","L50","num_contigs","num_bins","metagenomic_bases"), id_to_col = TRUE) %>% #get 3 columns from MAGs table
+  filter(AB_batch_api %in% c("ABB0409","ABB0410","ABB0411","ABB0412","ABB0413","ABB0414","ABB0415","ABB0416","ABB0417","ABB0418","ABB0419","ABB0420")) %>% 
+  select(-AB_batch_api) %>% 
   rename(id=1,assembly_mapped_bases=metagenomic_bases,dataset=EHI_number_api) %>%
   filter(dataset %in% sample_metadata$dataset) %>%
   select(dataset,assembly_length,N50,L50,num_contigs,num_bins,assembly_mapped_bases)
@@ -51,10 +53,18 @@ assembly_data <- airtable("tblG6ZIvkYN844I97", "appQpr6MxnaiVHsHy") %>% #get bas
 
 ```{r mapping_data, warning=FALSE, comments="", message=FALSE, echo=FALSE, eval=FALSE}
 mapping_data <- airtable("tblWDyQmM9rQ9wq57", "appWbHBNLE6iAsMRV") %>% #get base ID from Airtable browser URL
-  read_airtable(., fields = c("EHI_sample_static","MAG_mapping_percentage"), id_to_col = TRUE) %>% #get 3 columns from MAGs table
+  read_airtable(., fields = c("DM_batch_static","EHI_sample_static","MAG_mapping_percentage"), id_to_col = TRUE) %>% #get 3 columns from MAGs table
+  filter(DM_batch_static %in% c("DMB0121","DMB0122","DMB0123","DMB0124","DMB0125","DMB0126","DMB0127","DMB0128","DMB0129","DMB0130","DMB0131","DMB0132","DMB0133","DMB0134")) %>% 
+  mutate(catalogue = case_when(
+    DM_batch_static == "DMB0134" ~ "All",
+    DM_batch_static %in% c("DMB0121","DMB0122","DMB0123","DMB0124","DMB0125",
+                "DMB0126","DMB0127","DMB0128","DMB0129","DMB0130",
+                "DMB0131","DMB0132") ~ "Species",
+    TRUE ~ NA_character_
+  )) %>% 
   rename(id=1,dataset=EHI_sample_static) %>%
   filter(dataset %in% sample_metadata$dataset) %>%
-  select(dataset,MAG_mapping_percentage)
+  select(dataset,MAG_mapping_percentage,catalogue)
 ```
 
 ```{r genomics_data, warning=FALSE, comments="", message=FALSE, echo=FALSE, eval=FALSE}
