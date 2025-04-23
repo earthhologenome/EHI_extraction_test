@@ -1,0 +1,2063 @@
+# (PART) ANNEX {-}
+This Rmarkdown document contains the code to generate the community-level analyses of the EHI DNA extraction method test.
+
+# Amphibians
+
+## ***Calotriton asper***
+
+### Retrieve data
+
+```{r data_calotriton, warning=FALSE, comments="", message=FALSE}
+species="Calotriton asper"
+genus=strsplit(species, " ")[[1]][1] %>% tolower()
+
+sample_metadata <- read_tsv(paste0("data/metadata.tsv")) %>%
+    rename(dataset=Dataset) %>%
+    filter(Species == species)
+
+read_counts <- read_tsv("https://sid.erda.dk/share_redirect/BaMZodj9sA/DMB/DMB0121/DMB0121_counts.tsv.gz") %>%
+  rename(genome = 1)
+
+genome_metadata <- read_tsv("https://sid.erda.dk/share_redirect/BaMZodj9sA/DMB/DMB0121/DMB0121_mag_info.tsv.gz") %>%
+  rename(genome = 1, length=mag_size)
+
+genome_coverage <- read_tsv("https://sid.erda.dk/share_redirect/BaMZodj9sA/DMB/DMB0121/DMB0121_coverage.tsv.gz") %>%
+  rename(genome = 1)
+
+download.file("https://sid.erda.dk/share_redirect/BaMZodj9sA/DMB/DMB0121/DMB0121.tree.gz", "data/DMB0121.tree.gz")
+genome_tree <- read_tree("data/DMB0121.tree.gz")
+```
+
+### Filter data
+
+```{r filter_calotriton, warning=FALSE, comments="", message=FALSE}
+#Filter by coverage
+min_coverage=0.3
+read_counts_filt <- genome_coverage %>%
+  mutate(across(where(is.numeric), ~ ifelse(. > min_coverage, 1, 0))) %>%
+  mutate(across(-1, ~ . * read_counts[[cur_column()]]))
+
+# Transform  to genome counts (non-filtered)
+readlength=150
+genome_counts <- read_counts %>%
+  mutate(across(where(is.numeric), ~ . / (genome_metadata$length / readlength) ))
+
+# Transform to genome counts (coverage-filtered)
+readlength=150
+genome_counts_filt <- read_counts_filt %>%
+  mutate(across(where(is.numeric), ~ . / (genome_metadata$length / readlength) ))
+```
+
+### Community barplot
+
+```{r barplot_calotriton, warning=FALSE, comments="", message=FALSE, fig.height=8, fig.width=10, fig.fullwidth=TRUE}
+# Retrieve EHI taxonomy colors
+phylum_colors <- read_tsv("https://raw.githubusercontent.com/earthhologenome/EHI_taxonomy_colour/main/ehi_phylum_colors.tsv") %>%
+  right_join(genome_metadata, by=join_by(phylum == phylum)) %>%
+    select(phylum, colors) %>%
+    unique() %>%
+    arrange(phylum) %>%
+    select(colors) %>%
+    pull()
+
+# Stacked barplot
+genome_counts %>%
+    mutate_at(vars(-genome), funs(./sum(., na.rm = TRUE)))  %>% #apply TSS nornalisation
+    pivot_longer(-genome, names_to = "dataset", values_to = "count") %>%
+    left_join(., genome_metadata, by = join_by(genome == genome)) %>% #append taxonomy
+    left_join(., sample_metadata, by = join_by(dataset == dataset)) %>% #append taxonomy
+    mutate(Extraction=factor(Extraction,levels=c("ZYMO","DREX","EHEX"))) %>%
+    ggplot(., aes(x=dataset,y=count,fill=phylum, group=phylum))+ #grouping enables keeping the same sorting of taxonomic units
+          geom_bar(stat="identity", colour="white", linewidth=0.1)+ #plot stacked bars with white borders
+          scale_fill_manual(values=phylum_colors) +
+          labs(y = "Relative abundance") +
+          facet_nested(. ~ Sample + Extraction, scales="free_x") +
+          guides(fill = guide_legend(ncol = 3)) +
+          theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1),
+                          axis.title.x = element_blank(),
+                panel.background = element_blank(),
+                panel.border = element_blank(),
+                panel.grid.major = element_blank(),
+                panel.grid.minor = element_blank(),
+                axis.line = element_line(linewidth = 0.5, linetype = "solid", colour = "black"),
+                legend.position="none",
+                legend.title=element_blank())
+
+ggsave(paste0("figures/barplot_",genus,".pdf"))
+```
+
+### Alpha diversity
+
+```{r alpha_calotriton, warning=FALSE, comments="", message=FALSE}
+#Calculate Hill numbers
+richness <- genome_counts_filt %>%
+            column_to_rownames(var="genome") %>%
+            select(where(~!all(. == 0))) %>%
+            hilldiv(.,q=0) %>%
+            t() %>%
+            as.data.frame() %>%
+            rename(richness=1) %>%
+            rownames_to_column(var="dataset")
+
+neutral <- genome_counts_filt %>%
+            column_to_rownames(var="genome") %>%
+            select(where(~!all(. == 0))) %>%
+            hilldiv(.,q=1) %>%
+            t() %>%
+            as.data.frame() %>%
+            rename(neutral=1) %>%
+            rownames_to_column(var="dataset")
+
+phylogenetic <- genome_counts_filt %>%
+            column_to_rownames(var="genome") %>%
+            select(where(~!all(. == 0))) %>%
+            hilldiv(.,q=1,tree=genome_tree) %>%
+            t() %>%
+            as.data.frame() %>%
+            rename(phylogenetic=1) %>%
+            rownames_to_column(var="dataset")
+
+# Merge alpha diversities
+alpha_diversity <- richness %>%
+      full_join(neutral,by=join_by(dataset==dataset)) %>%
+      full_join(phylogenetic,by=join_by(dataset==dataset))
+
+# Write alpha diversities
+alpha_diversity %>% write_tsv(paste0("results/alpha_",genus,".tsv"))
+
+# Print alpha diversity
+alpha_diversity %>%
+  left_join(sample_metadata %>% select(dataset,Extraction,Sample),by=join_by(dataset==dataset)) %>%
+  group_by(Extraction) %>%
+  summarise(richness=mean(richness), neutral=mean(neutral), phylogenetic=mean(phylogenetic)) %>%
+  tt()
+```
+
+### Beta diversity
+
+```{r beta_calotriton, warning=FALSE, comments="", message=FALSE}
+#Calculate Hill numbers
+richness <- genome_counts_filt %>%
+            column_to_rownames(var="genome") %>%
+            select(where(~!all(. == 0))) %>%
+            hillpair(.,q=0, metric="C", out="pair")
+
+neutral <- genome_counts_filt %>%
+            column_to_rownames(var="genome") %>%
+            select(where(~!all(. == 0))) %>%
+            hillpair(.,q=1, metric="C", out="pair")
+
+phylogenetic <- genome_counts_filt %>%
+            column_to_rownames(var="genome") %>%
+            select(where(~!all(. == 0))) %>%
+            hillpair(.,q=1, tree=genome_tree, metric="C", out="pair")
+
+# Merge beta diversities
+beta_diversity <- richness %>%
+      full_join(neutral,by=c("first", "second")) %>%
+      full_join(phylogenetic,by=c("first", "second")) %>%
+      rename(richness=C.x, neutral=C.y, phylogenetic=C)
+
+# Write beta diversities
+beta_diversity %>% write_tsv(paste0("results/beta_",genus,".tsv"))
+
+# Print beta diversities
+beta_diversity %>%
+  left_join(sample_metadata %>% select(dataset,Extraction,Sample),by=join_by(first==dataset)) %>%
+  left_join(sample_metadata %>% select(dataset,Extraction,Sample),by=join_by(second==dataset)) %>%
+  mutate(relationship = case_when(
+    Extraction.x == Extraction.y & Sample.x != Sample.y ~ "inter",
+    Extraction.x != Extraction.y & Sample.x == Sample.y ~ "intra",
+    TRUE ~ NA_character_  # Handle other cases if needed
+  )) %>%
+  filter(relationship != is.na(relationship)) %>%
+  group_by(relationship) %>%
+  summarise(richness=mean(richness), neutral=mean(neutral), phylogenetic=mean(phylogenetic)) %>%
+  tt()
+```
+
+### Variance partitioning
+
+```{r permanova_calotriton, warning=FALSE, comments="", message=FALSE}
+richness <- genome_counts_filt %>%
+            column_to_rownames(var="genome") %>%
+            select(where(~!all(. == 0))) %>%
+            hillpair(.,q=0, metric="C") %>%
+            as.dist() %>%
+            adonis2(formula = . ~ Sample + Extraction, data = sample_metadata %>% arrange(match(dataset,colnames(genome_counts_filt))), permutations = 999, method = "bray", sqrt.dist = TRUE) %>%
+            broom::tidy() %>%
+            filter(term == "Model") %>%
+            select(R2) %>% pull()
+
+neutral <- genome_counts_filt %>%
+            column_to_rownames(var="genome") %>%
+            select(where(~!all(. == 0))) %>%
+            hillpair(.,q=1, metric="C") %>%
+            as.dist() %>%
+            adonis2(formula = . ~ Sample + Extraction, data = sample_metadata %>% arrange(match(dataset,colnames(genome_counts_filt))), permutations = 999, method = "bray", sqrt.dist = TRUE) %>%
+            broom::tidy() %>%
+            filter(term == "Model") %>%
+            select(R2) %>% pull()
+
+phylogenetic <- genome_counts_filt %>%
+            column_to_rownames(var="genome") %>%
+            select(where(~!all(. == 0))) %>%
+            hillpair(.,q=1, tree=genome_tree, metric="C") %>%
+            as.dist() %>%
+            adonis2(formula = . ~ Sample + Extraction, data = sample_metadata %>% arrange(match(dataset,colnames(genome_counts_filt))), permutations = 999, method = "bray", sqrt.dist = TRUE) %>%
+            broom::tidy() %>%
+            filter(term == "Model") %>%
+            select(R2) %>% pull()
+
+tibble(species=rep(species,3),metric=c("richness","neutral","phylogenetic"),r2=c(richness,neutral,phylogenetic)) %>%
+      write_tsv(paste0("results/var_",genus,".tsv"))
+```
+
+## ***Lissotriton helveticus***
+
+### Retrieve data
+
+```{r data_lissotriton, warning=FALSE, comments="", message=FALSE}
+species="Lissotriton helveticus"
+genus=strsplit(species, " ")[[1]][1] %>% tolower()
+
+sample_metadata <- read_tsv(paste0("data/metadata.tsv")) %>%
+    rename(dataset=Dataset) %>%
+    filter(Species == species)
+
+
+read_counts <- read_tsv("https://sid.erda.dk/share_redirect/BaMZodj9sA/DMB/DMB0124/DMB0124_counts.tsv.gz") %>%
+  rename(genome = 1)
+
+genome_metadata <- read_tsv("https://sid.erda.dk/share_redirect/BaMZodj9sA/DMB/DMB0124/DMB0124_mag_info.tsv.gz") %>%
+  rename(genome = 1, length=mag_size)
+
+genome_coverage <- read_tsv("https://sid.erda.dk/share_redirect/BaMZodj9sA/DMB/DMB0124/DMB0124_coverage.tsv.gz") %>%
+  rename(genome = 1)
+
+download.file("https://sid.erda.dk/share_redirect/BaMZodj9sA/DMB/DMB0124/DMB0124.tree.gz", "data/DMB0124.tree.gz")
+genome_tree <- read_tree("data/DMB0124.tree.gz")
+```
+
+### Filter data
+
+```{r filter_lissotriton, warning=FALSE, comments="", message=FALSE}
+#Filter by coverage
+min_coverage=0.3
+read_counts_filt <- genome_coverage %>%
+  mutate(across(where(is.numeric), ~ ifelse(. > min_coverage, 1, 0))) %>%
+  mutate(across(-1, ~ . * read_counts[[cur_column()]]))
+
+# Transform  to genome counts (non-filtered)
+readlength=150
+genome_counts <- read_counts %>%
+  mutate(across(where(is.numeric), ~ . / (genome_metadata$length / readlength) ))
+
+# Transform to genome counts (coverage-filtered)
+readlength=150
+genome_counts_filt <- read_counts_filt %>%
+  mutate(across(where(is.numeric), ~ . / (genome_metadata$length / readlength) ))
+```
+
+### Community barplot
+
+```{r barplot_lissotriton, warning=FALSE, comments="", message=FALSE, fig.height=8, fig.width=10, fig.fullwidth=TRUE}
+# Retrieve EHI taxonomy colors
+phylum_colors <- read_tsv("https://raw.githubusercontent.com/earthhologenome/EHI_taxonomy_colour/main/ehi_phylum_colors.tsv") %>%
+  right_join(genome_metadata, by=join_by(phylum == phylum)) %>%
+    select(phylum, colors) %>%
+    unique() %>%
+    arrange(phylum) %>%
+    select(colors) %>%
+    pull()
+
+# Stacked barplot
+genome_counts %>%
+    mutate_at(vars(-genome), funs(./sum(., na.rm = TRUE)))  %>% #apply TSS nornalisation
+    pivot_longer(-genome, names_to = "dataset", values_to = "count") %>%
+    left_join(., genome_metadata, by = join_by(genome == genome)) %>% #append taxonomy
+    left_join(., sample_metadata, by = join_by(dataset == dataset)) %>% #append taxonomy
+    mutate(Extraction=factor(Extraction,levels=c("ZYMO","DREX","EHEX"))) %>%
+    ggplot(., aes(x=dataset,y=count,fill=phylum, group=phylum))+ #grouping enables keeping the same sorting of taxonomic units
+          geom_bar(stat="identity", colour="white", linewidth=0.1)+ #plot stacked bars with white borders
+          scale_fill_manual(values=phylum_colors) +
+          labs(y = "Relative abundance") +
+          facet_nested(. ~ Sample + Extraction, scales="free_x") +
+          guides(fill = guide_legend(ncol = 3)) +
+          theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1),
+                          axis.title.x = element_blank(),
+                panel.background = element_blank(),
+                panel.border = element_blank(),
+                panel.grid.major = element_blank(),
+                panel.grid.minor = element_blank(),
+                axis.line = element_line(linewidth = 0.5, linetype = "solid", colour = "black"),
+                legend.position="none",
+                legend.title=element_blank())
+
+ggsave(paste0("figures/barplot_",genus,".pdf"))
+```
+
+### Alpha diversity
+
+```{r alpha_lissotriton, warning=FALSE, comments="", message=FALSE}
+#Calculate Hill numbers
+richness <- genome_counts_filt %>%
+            column_to_rownames(var="genome") %>%
+            select(where(~!all(. == 0))) %>%
+            hilldiv(.,q=0) %>%
+            t() %>%
+            as.data.frame() %>%
+            rename(richness=1) %>%
+            rownames_to_column(var="dataset")
+
+neutral <- genome_counts_filt %>%
+            column_to_rownames(var="genome") %>%
+            select(where(~!all(. == 0))) %>%
+            hilldiv(.,q=1) %>%
+            t() %>%
+            as.data.frame() %>%
+            rename(neutral=1) %>%
+            rownames_to_column(var="dataset")
+
+phylogenetic <- genome_counts_filt %>%
+            column_to_rownames(var="genome") %>%
+            select(where(~!all(. == 0))) %>%
+            hilldiv(.,q=1,tree=genome_tree) %>%
+            t() %>%
+            as.data.frame() %>%
+            rename(phylogenetic=1) %>%
+            rownames_to_column(var="dataset")
+
+# Merge alpha diversities
+alpha_diversity <- richness %>%
+      full_join(neutral,by=join_by(dataset==dataset)) %>%
+      full_join(phylogenetic,by=join_by(dataset==dataset))
+
+# Write alpha diversities
+alpha_diversity %>% write_tsv(paste0("results/alpha_",genus,".tsv"))
+
+# Print alpha diversity
+alpha_diversity %>%
+  left_join(sample_metadata %>% select(dataset,Extraction,Sample),by=join_by(dataset==dataset)) %>%
+  group_by(Extraction) %>%
+  summarise(richness=mean(richness), neutral=mean(neutral), phylogenetic=mean(phylogenetic)) %>%
+  tt()
+```
+
+### Beta diversity
+
+```{r beta_lissotriton, warning=FALSE, comments="", message=FALSE}
+#Calculate Hill numbers
+richness <- genome_counts_filt %>%
+            column_to_rownames(var="genome") %>%
+            select(where(~!all(. == 0))) %>%
+            hillpair(.,q=0, metric="C", out="pair")
+
+neutral <- genome_counts_filt %>%
+            column_to_rownames(var="genome") %>%
+            select(where(~!all(. == 0))) %>%
+            hillpair(.,q=1, metric="C", out="pair")
+
+phylogenetic <- genome_counts_filt %>%
+            column_to_rownames(var="genome") %>%
+            select(where(~!all(. == 0))) %>%
+            hillpair(.,q=1, tree=genome_tree, metric="C", out="pair")
+
+# Merge beta diversities
+beta_diversity <- richness %>%
+      full_join(neutral,by=c("first", "second")) %>%
+      full_join(phylogenetic,by=c("first", "second")) %>%
+      rename(richness=C.x, neutral=C.y, phylogenetic=C)
+
+# Write beta diversities
+beta_diversity %>% write_tsv(paste0("results/beta_",genus,".tsv"))
+
+# Print beta diversities
+beta_diversity %>%
+  left_join(sample_metadata %>% select(dataset,Extraction,Sample),by=join_by(first==dataset)) %>%
+  left_join(sample_metadata %>% select(dataset,Extraction,Sample),by=join_by(second==dataset)) %>%
+  mutate(relationship = case_when(
+    Extraction.x == Extraction.y & Sample.x != Sample.y ~ "inter",
+    Extraction.x != Extraction.y & Sample.x == Sample.y ~ "intra",
+    TRUE ~ NA_character_  # Handle other cases if needed
+  )) %>%
+  filter(relationship != is.na(relationship)) %>%
+  group_by(relationship) %>%
+  summarise(richness=mean(richness), neutral=mean(neutral), phylogenetic=mean(phylogenetic)) %>%
+  tt()
+```
+
+### Variance partitioning
+
+```{r permanova_lissotriton, warning=FALSE, comments="", message=FALSE}
+richness <-genome_counts_filt %>%
+            column_to_rownames(var="genome") %>%
+            select(where(~!all(. == 0))) %>%
+            hillpair(.,q=0, metric="C") %>%
+            as.dist() %>%
+            adonis2(formula = . ~ Sample + Extraction, data = sample_metadata %>% arrange(match(dataset,colnames(genome_counts_filt))), permutations = 999, method = "bray", sqrt.dist = TRUE) %>%
+            broom::tidy() %>%
+            filter(term == "Model") %>%
+            select(R2) %>% pull()
+
+neutral <- genome_counts_filt %>%
+            column_to_rownames(var="genome") %>%
+            select(where(~!all(. == 0))) %>%
+            hillpair(.,q=1, metric="C") %>%
+            as.dist() %>%
+            adonis2(formula = . ~ Sample + Extraction, data = sample_metadata %>% arrange(match(dataset,colnames(genome_counts_filt))), permutations = 999, method = "bray", sqrt.dist = TRUE) %>%
+            broom::tidy() %>%
+            filter(term == "Model") %>%
+            select(R2) %>% pull()
+
+phylogenetic <- genome_counts_filt %>%
+            column_to_rownames(var="genome") %>%
+            select(where(~!all(. == 0))) %>%
+            hillpair(.,q=1, tree=genome_tree, metric="C") %>%
+            as.dist() %>%
+            adonis2(formula = . ~ Sample + Extraction, data = sample_metadata %>% arrange(match(dataset,colnames(genome_counts_filt))), permutations = 999, method = "bray", sqrt.dist = TRUE) %>%
+            broom::tidy() %>%
+            filter(term == "Model") %>%
+            select(R2) %>% pull()
+
+tibble(species=rep(species,3),metric=c("richness","neutral","phylogenetic"),r2=c(richness,neutral,phylogenetic)) %>%
+      write_tsv(paste0("results/var_",genus,".tsv"))
+```
+
+## ***Salamandra atra***
+
+### Retrieve data
+
+```{r data_salamandra, warning=FALSE, comments="", message=FALSE}
+species="Salamandra atra"
+genus=strsplit(species, " ")[[1]][1] %>% tolower()
+
+sample_metadata <- read_tsv(paste0("data/metadata.tsv")) %>%
+    rename(dataset=Dataset) %>%
+    filter(Species == species)
+
+
+read_counts <- read_tsv("https://sid.erda.dk/share_redirect/BaMZodj9sA/DMB/DMB0129/DMB0129_counts.tsv.gz") %>%
+  rename(genome = 1)
+
+genome_metadata <- read_tsv("https://sid.erda.dk/share_redirect/BaMZodj9sA/DMB/DMB0129/DMB0129_mag_info.tsv.gz") %>%
+  rename(genome = 1, length=mag_size)
+
+genome_coverage <- read_tsv("https://sid.erda.dk/share_redirect/BaMZodj9sA/DMB/DMB0129/DMB0129_coverage.tsv.gz") %>%
+  rename(genome = 1)
+
+download.file("https://sid.erda.dk/share_redirect/BaMZodj9sA/DMB/DMB0129/DMB0129.tree.gz", "data/DMB0129.tree.gz")
+genome_tree <- read_tree("data/DMB0129.tree.gz")
+```
+
+### Filter data
+
+```{r filter_salamandra, warning=FALSE, comments="", message=FALSE}
+#Filter by coverage
+min_coverage=0.3
+read_counts_filt <- genome_coverage %>%
+  mutate(across(where(is.numeric), ~ ifelse(. > min_coverage, 1, 0))) %>%
+  mutate(across(-1, ~ . * read_counts[[cur_column()]]))
+
+# Transform  to genome counts (non-filtered)
+readlength=150
+genome_counts <- read_counts %>%
+  mutate(across(where(is.numeric), ~ . / (genome_metadata$length / readlength) ))
+
+# Transform to genome counts (coverage-filtered)
+readlength=150
+genome_counts_filt <- read_counts_filt %>%
+  mutate(across(where(is.numeric), ~ . / (genome_metadata$length / readlength) ))
+```
+
+### Community barplot
+
+```{r barplot_salamandra, warning=FALSE, comments="", message=FALSE, fig.height=8, fig.width=10, fig.fullwidth=TRUE}
+# Retrieve EHI taxonomy colors
+phylum_colors <- read_tsv("https://raw.githubusercontent.com/earthhologenome/EHI_taxonomy_colour/main/ehi_phylum_colors.tsv") %>%
+  right_join(genome_metadata, by=join_by(phylum == phylum)) %>%
+    select(phylum, colors) %>%
+    unique() %>%
+    arrange(phylum) %>%
+    select(colors) %>%
+    pull()
+
+# Stacked barplot
+genome_counts %>%
+    mutate_at(vars(-genome), funs(./sum(., na.rm = TRUE)))  %>% #apply TSS nornalisation
+    pivot_longer(-genome, names_to = "dataset", values_to = "count") %>%
+    left_join(., genome_metadata, by = join_by(genome == genome)) %>% #append taxonomy
+    left_join(., sample_metadata, by = join_by(dataset == dataset)) %>% #append taxonomy
+    mutate(Extraction=factor(Extraction,levels=c("ZYMO","DREX","EHEX"))) %>%
+    ggplot(., aes(x=dataset,y=count,fill=phylum, group=phylum))+ #grouping enables keeping the same sorting of taxonomic units
+          geom_bar(stat="identity", colour="white", linewidth=0.1)+ #plot stacked bars with white borders
+          scale_fill_manual(values=phylum_colors) +
+          labs(y = "Relative abundance") +
+          facet_nested(. ~ Sample + Extraction, scales="free_x") +
+          guides(fill = guide_legend(ncol = 3)) +
+          theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1),
+                          axis.title.x = element_blank(),
+                panel.background = element_blank(),
+                panel.border = element_blank(),
+                panel.grid.major = element_blank(),
+                panel.grid.minor = element_blank(),
+                axis.line = element_line(linewidth = 0.5, linetype = "solid", colour = "black"),
+                legend.position="none",
+                legend.title=element_blank())
+
+ggsave(paste0("figures/barplot_",genus,".pdf"))
+```
+
+### Alpha diversity
+
+```{r alpha_salamandra, warning=FALSE, comments="", message=FALSE}
+#Calculate Hill numbers
+richness <- genome_counts_filt %>%
+            column_to_rownames(var="genome") %>%
+            select(where(~!all(. == 0))) %>%
+            hilldiv(.,q=0) %>%
+            t() %>%
+            as.data.frame() %>%
+            rename(richness=1) %>%
+            rownames_to_column(var="dataset")
+
+neutral <- genome_counts_filt %>%
+            column_to_rownames(var="genome") %>%
+            select(where(~!all(. == 0))) %>%
+            hilldiv(.,q=1) %>%
+            t() %>%
+            as.data.frame() %>%
+            rename(neutral=1) %>%
+            rownames_to_column(var="dataset")
+
+phylogenetic <- genome_counts_filt %>%
+            column_to_rownames(var="genome") %>%
+            select(where(~!all(. == 0))) %>%
+            hilldiv(.,q=1,tree=genome_tree) %>%
+            t() %>%
+            as.data.frame() %>%
+            rename(phylogenetic=1) %>%
+            rownames_to_column(var="dataset")
+
+# Merge alpha diversities
+alpha_diversity <- richness %>%
+      full_join(neutral,by=join_by(dataset==dataset)) %>%
+      full_join(phylogenetic,by=join_by(dataset==dataset))
+
+# Write alpha diversities
+alpha_diversity %>% write_tsv(paste0("results/alpha_",genus,".tsv"))
+
+# Print alpha diversity
+alpha_diversity %>%
+  left_join(sample_metadata %>% select(dataset,Extraction,Sample),by=join_by(dataset==dataset)) %>%
+  group_by(Extraction) %>%
+  summarise(richness=mean(richness), neutral=mean(neutral), phylogenetic=mean(phylogenetic)) %>%
+  tt()
+```
+
+### Beta diversity
+
+```{r beta_salamandra, warning=FALSE, comments="", message=FALSE}
+#Calculate Hill numbers
+richness <- genome_counts_filt %>%
+            column_to_rownames(var="genome") %>%
+            select(where(~!all(. == 0))) %>%
+            hillpair(.,q=0, metric="C", out="pair")
+
+neutral <- genome_counts_filt %>%
+            column_to_rownames(var="genome") %>%
+            select(where(~!all(. == 0))) %>%
+            hillpair(.,q=1, metric="C", out="pair")
+
+phylogenetic <- genome_counts_filt %>%
+            column_to_rownames(var="genome") %>%
+            select(where(~!all(. == 0))) %>%
+            hillpair(.,q=1, tree=genome_tree, metric="C", out="pair")
+
+# Merge beta diversities
+beta_diversity <- richness %>%
+      full_join(neutral,by=c("first", "second")) %>%
+      full_join(phylogenetic,by=c("first", "second")) %>%
+      rename(richness=C.x, neutral=C.y, phylogenetic=C)
+
+# Write beta diversities
+beta_diversity %>% write_tsv(paste0("results/beta_",genus,".tsv"))
+
+# Print beta diversities
+beta_diversity %>%
+  left_join(sample_metadata %>% select(dataset,Extraction,Sample),by=join_by(first==dataset)) %>%
+  left_join(sample_metadata %>% select(dataset,Extraction,Sample),by=join_by(second==dataset)) %>%
+  mutate(relationship = case_when(
+    Extraction.x == Extraction.y & Sample.x != Sample.y ~ "inter",
+    Extraction.x != Extraction.y & Sample.x == Sample.y ~ "intra",
+    TRUE ~ NA_character_  # Handle other cases if needed
+  )) %>%
+  filter(relationship != is.na(relationship)) %>%
+  group_by(relationship) %>%
+  summarise(richness=mean(richness), neutral=mean(neutral), phylogenetic=mean(phylogenetic)) %>%
+  tt()
+```
+
+### Variance partitioning
+
+```{r permanova_salamandra, warning=FALSE, comments="", message=FALSE}
+richness <-genome_counts_filt %>%
+            column_to_rownames(var="genome") %>%
+            select(where(~!all(. == 0))) %>%
+            hillpair(.,q=0, metric="C") %>%
+            as.dist() %>%
+            adonis2(formula = . ~ Sample + Extraction, data = sample_metadata %>% arrange(match(dataset,colnames(genome_counts_filt))), permutations = 999, method = "bray", sqrt.dist = TRUE) %>%
+            broom::tidy() %>%
+            filter(term == "Model") %>%
+            select(R2) %>% pull()
+
+neutral <- genome_counts_filt %>%
+            column_to_rownames(var="genome") %>%
+            select(where(~!all(. == 0))) %>%
+            hillpair(.,q=1, metric="C") %>%
+            as.dist() %>%
+            adonis2(formula = . ~ Sample + Extraction, data = sample_metadata %>% arrange(match(dataset,colnames(genome_counts_filt))), permutations = 999, method = "bray", sqrt.dist = TRUE) %>%
+            broom::tidy() %>%
+            filter(term == "Model") %>%
+            select(R2) %>% pull()
+
+phylogenetic <- genome_counts_filt %>%
+            column_to_rownames(var="genome") %>%
+            select(where(~!all(. == 0))) %>%
+            hillpair(.,q=1, tree=genome_tree, metric="C") %>%
+            as.dist() %>%
+            adonis2(formula = . ~ Sample + Extraction, data = sample_metadata %>% arrange(match(dataset,colnames(genome_counts_filt))), permutations = 999, method = "bray", sqrt.dist = TRUE) %>%
+            broom::tidy() %>%
+            filter(term == "Model") %>%
+            select(R2) %>% pull()
+
+tibble(species=rep(species,3),metric=c("richness","neutral","phylogenetic"),r2=c(richness,neutral,phylogenetic)) %>%
+      write_tsv(paste0("results/var_",genus,".tsv"))
+```
+
+# Birds
+
+## ***Geospizopsis unicolor***
+
+### Retrieve data
+
+```{r data_geospizopsis, warning=FALSE, comments="", message=FALSE}
+species="Geospizopsis unicolor"
+genus=strsplit(species, " ")[[1]][1] %>% tolower()
+
+sample_metadata <- read_tsv(paste0("data/metadata.tsv")) %>%
+    rename(dataset=Dataset) %>%
+    filter(Species == species)
+
+
+read_counts <- read_tsv("https://sid.erda.dk/share_redirect/BaMZodj9sA/DMB/DMB0123/DMB0123_counts.tsv.gz") %>%
+  rename(genome = 1)
+
+genome_metadata <- read_tsv("https://sid.erda.dk/share_redirect/BaMZodj9sA/DMB/DMB0123/DMB0123_mag_info.tsv.gz") %>%
+  rename(genome = 1, length=mag_size)
+
+genome_coverage <- read_tsv("https://sid.erda.dk/share_redirect/BaMZodj9sA/DMB/DMB0123/DMB0123_coverage.tsv.gz") %>%
+  rename(genome = 1)
+
+download.file("https://sid.erda.dk/share_redirect/BaMZodj9sA/DMB/DMB0123/DMB0123.tree.gz", "data/DMB0123.tree.gz")
+genome_tree <- read_tree("data/DMB0123.tree.gz")
+```
+
+### Filter data
+
+```{r filter_geospizopsis, warning=FALSE, comments="", message=FALSE}
+#Filter by coverage
+min_coverage=0.3
+read_counts_filt <- genome_coverage %>%
+  mutate(across(where(is.numeric), ~ ifelse(. > min_coverage, 1, 0))) %>%
+  mutate(across(-1, ~ . * read_counts[[cur_column()]]))
+
+# Transform  to genome counts (non-filtered)
+readlength=150
+genome_counts <- read_counts %>%
+  mutate(across(where(is.numeric), ~ . / (genome_metadata$length / readlength) ))
+
+# Transform to genome counts (coverage-filtered)
+readlength=150
+genome_counts_filt <- read_counts_filt %>%
+  mutate(across(where(is.numeric), ~ . / (genome_metadata$length / readlength) ))
+```
+
+### Community barplot
+
+```{r barplot_geospizopsis, warning=FALSE, comments="", message=FALSE, fig.height=8, fig.width=10, fig.fullwidth=TRUE}
+# Retrieve EHI taxonomy colors
+phylum_colors <- read_tsv("https://raw.githubusercontent.com/earthhologenome/EHI_taxonomy_colour/main/ehi_phylum_colors.tsv") %>%
+  right_join(genome_metadata, by=join_by(phylum == phylum)) %>%
+    select(phylum, colors) %>%
+    unique() %>%
+    arrange(phylum) %>%
+    select(colors) %>%
+    pull()
+
+# Stacked barplot
+genome_counts %>%
+    mutate_at(vars(-genome), funs(./sum(., na.rm = TRUE)))  %>% #apply TSS nornalisation
+    pivot_longer(-genome, names_to = "dataset", values_to = "count") %>%
+    left_join(., genome_metadata, by = join_by(genome == genome)) %>% #append taxonomy
+    left_join(., sample_metadata, by = join_by(dataset == dataset)) %>% #append taxonomy
+    mutate(Extraction=factor(Extraction,levels=c("ZYMO","DREX","EHEX"))) %>%
+    ggplot(., aes(x=dataset,y=count,fill=phylum, group=phylum))+ #grouping enables keeping the same sorting of taxonomic units
+          geom_bar(stat="identity", colour="white", linewidth=0.1)+ #plot stacked bars with white borders
+          scale_fill_manual(values=phylum_colors) +
+          labs(y = "Relative abundance") +
+          facet_nested(. ~ Sample + Extraction, scales="free_x") +
+          guides(fill = guide_legend(ncol = 3)) +
+          theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1),
+                          axis.title.x = element_blank(),
+                panel.background = element_blank(),
+                panel.border = element_blank(),
+                panel.grid.major = element_blank(),
+                panel.grid.minor = element_blank(),
+                axis.line = element_line(linewidth = 0.5, linetype = "solid", colour = "black"),
+                legend.position="none",
+                legend.title=element_blank())
+
+ggsave(paste0("figures/barplot_",genus,".pdf"))
+```
+
+### Alpha diversity
+
+Alpha diversity is not calculated as only one sample contains enough genome coverage to calculate diversity estimates.
+
+### Beta diversity
+
+Beta diversity is not calculated as only one sample contains enough genome coverage to calculate diversity estimates.
+
+## ***Perisoreus infaustus***
+
+### Retrieve data
+
+```{r data_perisoreus, warning=FALSE, comments="", message=FALSE}
+species="Perisoreus infaustus"
+genus=strsplit(species, " ")[[1]][1] %>% tolower()
+
+sample_metadata <- read_tsv(paste0("data/metadata.tsv")) %>%
+    rename(dataset=Dataset) %>%
+    filter(Species == species)
+
+
+read_counts <- read_tsv("https://sid.erda.dk/share_redirect/BaMZodj9sA/DMB/DMB0126/DMB0126_counts.tsv.gz") %>%
+  rename(genome = 1)
+
+genome_metadata <- read_tsv("https://sid.erda.dk/share_redirect/BaMZodj9sA/DMB/DMB0126/DMB0126_mag_info.tsv.gz") %>%
+  rename(genome = 1, length=mag_size)
+
+genome_coverage <- read_tsv("https://sid.erda.dk/share_redirect/BaMZodj9sA/DMB/DMB0126/DMB0126_coverage.tsv.gz") %>%
+  rename(genome = 1)
+
+download.file("https://sid.erda.dk/share_redirect/BaMZodj9sA/DMB/DMB0126/DMB0126.tree.gz", "data/DMB0126.tree.gz")
+genome_tree <- read_tree("data/DMB0126.tree.gz")
+```
+
+### Filter data
+
+```{r filter_perisoreus, warning=FALSE, comments="", message=FALSE}
+#Filter by coverage
+min_coverage=0.3
+read_counts_filt <- genome_coverage %>%
+  mutate(across(where(is.numeric), ~ ifelse(. > min_coverage, 1, 0))) %>%
+  mutate(across(-1, ~ . * read_counts[[cur_column()]]))
+
+# Transform  to genome counts (non-filtered)
+readlength=150
+genome_counts <- read_counts %>%
+  mutate(across(where(is.numeric), ~ . / (genome_metadata$length / readlength) ))
+
+# Transform to genome counts (coverage-filtered)
+readlength=150
+genome_counts_filt <- read_counts_filt %>%
+  mutate(across(where(is.numeric), ~ . / (genome_metadata$length / readlength) ))
+```
+
+### Community barplot
+
+```{r barplot_perisoreus, warning=FALSE, comments="", message=FALSE, fig.height=8, fig.width=10, fig.fullwidth=TRUE}
+# Retrieve EHI taxonomy colors
+phylum_colors <- read_tsv("https://raw.githubusercontent.com/earthhologenome/EHI_taxonomy_colour/main/ehi_phylum_colors.tsv") %>%
+  right_join(genome_metadata, by=join_by(phylum == phylum)) %>%
+    select(phylum, colors) %>%
+    unique() %>%
+    arrange(phylum) %>%
+    select(colors) %>%
+    pull()
+
+# Stacked barplot
+genome_counts %>%
+    mutate_at(vars(-genome), funs(./sum(., na.rm = TRUE)))  %>% #apply TSS nornalisation
+    pivot_longer(-genome, names_to = "dataset", values_to = "count") %>%
+    left_join(., genome_metadata, by = join_by(genome == genome)) %>% #append taxonomy
+    left_join(., sample_metadata, by = join_by(dataset == dataset)) %>% #append taxonomy
+    mutate(Extraction=factor(Extraction,levels=c("ZYMO","DREX","EHEX"))) %>%
+    ggplot(., aes(x=dataset,y=count,fill=phylum, group=phylum))+ #grouping enables keeping the same sorting of taxonomic units
+          geom_bar(stat="identity", colour="white", linewidth=0.1)+ #plot stacked bars with white borders
+          scale_fill_manual(values=phylum_colors) +
+          labs(y = "Relative abundance") +
+          facet_nested(. ~ Sample + Extraction, scales="free_x") +
+          guides(fill = guide_legend(ncol = 3)) +
+          theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1),
+                          axis.title.x = element_blank(),
+                panel.background = element_blank(),
+                panel.border = element_blank(),
+                panel.grid.major = element_blank(),
+                panel.grid.minor = element_blank(),
+                axis.line = element_line(linewidth = 0.5, linetype = "solid", colour = "black"),
+                legend.position="none",
+                legend.title=element_blank())
+
+ggsave(paste0("figures/barplot_",genus,".pdf"))
+```
+
+### Alpha diversity
+
+Alpha diversity is not calculated as only one sample contains enough genome coverage to calculate diversity estimates.
+
+### Beta diversity
+
+Beta diversity is not calculated as only one sample contains enough genome coverage to calculate diversity estimates.
+
+## ***Zonotrichia capensis***
+
+The number of reconstructed genomes was too low for community analyses.
+
+# Mammals
+
+## ***Plecotus auritus***
+
+### Retrieve data
+
+```{r data_plecotus, warning=FALSE, comments="", message=FALSE}
+species="Plecotus auritus"
+genus=strsplit(species, " ")[[1]][1] %>% tolower()
+
+sample_metadata <- read_tsv(paste0("data/metadata.tsv")) %>%
+    rename(dataset=Dataset) %>%
+    filter(Species == species)
+
+
+read_counts <- read_tsv("https://sid.erda.dk/share_redirect/BaMZodj9sA/DMB/DMB0127/DMB0127_counts.tsv.gz") %>%
+  rename(genome = 1)
+
+genome_metadata <- read_tsv("https://sid.erda.dk/share_redirect/BaMZodj9sA/DMB/DMB0127/DMB0127_mag_info.tsv.gz") %>%
+  rename(genome = 1, length=mag_size)
+
+genome_coverage <- read_tsv("https://sid.erda.dk/share_redirect/BaMZodj9sA/DMB/DMB0127/DMB0127_coverage.tsv.gz") %>%
+  rename(genome = 1)
+
+download.file("https://sid.erda.dk/share_redirect/BaMZodj9sA/DMB/DMB0127/DMB0127.tree.gz", "data/DMB0127.tree.gz")
+genome_tree <- read_tree("data/DMB0127.tree.gz")
+```
+
+### Filter data
+
+```{r filter_plecotus, warning=FALSE, comments="", message=FALSE}
+#Filter by coverage
+min_coverage=0.3
+read_counts_filt <- genome_coverage %>%
+  mutate(across(where(is.numeric), ~ ifelse(. > min_coverage, 1, 0))) %>%
+  mutate(across(-1, ~ . * read_counts[[cur_column()]]))
+
+# Transform  to genome counts (non-filtered)
+readlength=150
+genome_counts <- read_counts %>%
+  mutate(across(where(is.numeric), ~ . / (genome_metadata$length / readlength) ))
+
+# Transform to genome counts (coverage-filtered)
+readlength=150
+genome_counts_filt <- read_counts_filt %>%
+  mutate(across(where(is.numeric), ~ . / (genome_metadata$length / readlength) ))
+```
+
+### Community barplot
+
+```{r barplot_plecotus, warning=FALSE, comments="", message=FALSE, fig.height=8, fig.width=10, fig.fullwidth=TRUE}
+# Retrieve EHI taxonomy colors
+phylum_colors <- read_tsv("https://raw.githubusercontent.com/earthhologenome/EHI_taxonomy_colour/main/ehi_phylum_colors.tsv") %>%
+  right_join(genome_metadata, by=join_by(phylum == phylum)) %>%
+    select(phylum, colors) %>%
+    unique() %>%
+    arrange(phylum) %>%
+    select(colors) %>%
+    pull()
+
+# Stacked barplot
+genome_counts %>%
+    mutate_at(vars(-genome), funs(./sum(., na.rm = TRUE)))  %>% #apply TSS nornalisation
+    pivot_longer(-genome, names_to = "dataset", values_to = "count") %>%
+    left_join(., genome_metadata, by = join_by(genome == genome)) %>% #append taxonomy
+    left_join(., sample_metadata, by = join_by(dataset == dataset)) %>% #append taxonomy
+    mutate(Extraction=factor(Extraction,levels=c("ZYMO","DREX","EHEX"))) %>%
+    ggplot(., aes(x=dataset,y=count,fill=phylum, group=phylum))+ #grouping enables keeping the same sorting of taxonomic units
+          geom_bar(stat="identity", colour="white", linewidth=0.1)+ #plot stacked bars with white borders
+          scale_fill_manual(values=phylum_colors) +
+          labs(y = "Relative abundance") +
+          facet_nested(. ~ Sample + Extraction, scales="free_x") +
+          guides(fill = guide_legend(ncol = 3)) +
+          theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1),
+                          axis.title.x = element_blank(),
+                panel.background = element_blank(),
+                panel.border = element_blank(),
+                panel.grid.major = element_blank(),
+                panel.grid.minor = element_blank(),
+                axis.line = element_line(linewidth = 0.5, linetype = "solid", colour = "black"),
+                legend.position="none",
+                legend.title=element_blank())
+
+ggsave(paste0("figures/barplot_",genus,".pdf"))
+```
+
+### Alpha diversity
+
+```{r alpha_plecotus, warning=FALSE, comments="", message=FALSE}
+#Calculate Hill numbers
+richness <- genome_counts_filt %>%
+            column_to_rownames(var="genome") %>%
+            select(where(~!all(. == 0))) %>%
+            hilldiv(.,q=0) %>%
+            t() %>%
+            as.data.frame() %>%
+            rename(richness=1) %>%
+            rownames_to_column(var="dataset")
+
+neutral <- genome_counts_filt %>%
+            column_to_rownames(var="genome") %>%
+            select(where(~!all(. == 0))) %>%
+            hilldiv(.,q=1) %>%
+            t() %>%
+            as.data.frame() %>%
+            rename(neutral=1) %>%
+            rownames_to_column(var="dataset")
+
+phylogenetic <- genome_counts_filt %>%
+            column_to_rownames(var="genome") %>%
+            select(where(~!all(. == 0))) %>%
+            hilldiv(.,q=1,tree=genome_tree) %>%
+            t() %>%
+            as.data.frame() %>%
+            rename(phylogenetic=1) %>%
+            rownames_to_column(var="dataset")
+
+# Merge alpha diversities
+alpha_diversity <- richness %>%
+      full_join(neutral,by=join_by(dataset==dataset)) %>%
+      full_join(phylogenetic,by=join_by(dataset==dataset))
+
+# Write alpha diversities
+alpha_diversity %>% write_tsv(paste0("results/alpha_",genus,".tsv"))
+
+# Print alpha diversity
+alpha_diversity %>%
+  left_join(sample_metadata %>% select(dataset,Extraction,Sample),by=join_by(dataset==dataset)) %>%
+  group_by(Extraction) %>%
+  summarise(richness=mean(richness), neutral=mean(neutral), phylogenetic=mean(phylogenetic)) %>%
+  tt()
+```
+
+### Beta diversity
+
+```{r beta_plecotus, warning=FALSE, comments="", message=FALSE}
+#Calculate Hill numbers
+richness <- genome_counts_filt %>%
+            column_to_rownames(var="genome") %>%
+            select(where(~!all(. == 0))) %>%
+            hillpair(.,q=0, metric="C", out="pair")
+
+neutral <- genome_counts_filt %>%
+            column_to_rownames(var="genome") %>%
+            select(where(~!all(. == 0))) %>%
+            hillpair(.,q=1, metric="C", out="pair")
+
+phylogenetic <- genome_counts_filt %>%
+            column_to_rownames(var="genome") %>%
+            select(where(~!all(. == 0))) %>%
+            hillpair(.,q=1, tree=genome_tree, metric="C", out="pair")
+
+# Merge beta diversities
+beta_diversity <- richness %>%
+      full_join(neutral,by=c("first", "second")) %>%
+      full_join(phylogenetic,by=c("first", "second")) %>%
+      rename(richness=C.x, neutral=C.y, phylogenetic=C)
+
+# Write beta diversities
+beta_diversity %>% write_tsv(paste0("results/beta_",genus,".tsv"))
+
+# Print beta diversities
+beta_diversity %>%
+  left_join(sample_metadata %>% select(dataset,Extraction,Sample),by=join_by(first==dataset)) %>%
+  left_join(sample_metadata %>% select(dataset,Extraction,Sample),by=join_by(second==dataset)) %>%
+  mutate(relationship = case_when(
+    Extraction.x == Extraction.y & Sample.x != Sample.y ~ "inter",
+    Extraction.x != Extraction.y & Sample.x == Sample.y ~ "intra",
+    TRUE ~ NA_character_  # Handle other cases if needed
+  )) %>%
+  filter(relationship != is.na(relationship)) %>%
+  group_by(relationship) %>%
+  summarise(richness=mean(richness), neutral=mean(neutral), phylogenetic=mean(phylogenetic)) %>%
+  tt()
+```
+
+### Variance partitioning
+
+```{r permanova_plecotus, warning=FALSE, comments="", message=FALSE}
+richness <-genome_counts_filt %>%
+            column_to_rownames(var="genome") %>%
+            select(where(~!all(. == 0))) %>%
+            hillpair(.,q=0, metric="C") %>%
+            as.dist() %>%
+            adonis2(formula = . ~ Sample + Extraction, data = sample_metadata %>% arrange(match(dataset,colnames(genome_counts_filt))), permutations = 999, method = "bray", sqrt.dist = TRUE) %>%
+            broom::tidy() %>%
+            filter(term == "Model") %>%
+            select(R2) %>% pull()
+
+neutral <- genome_counts_filt %>%
+            column_to_rownames(var="genome") %>%
+            select(where(~!all(. == 0))) %>%
+            hillpair(.,q=1, metric="C") %>%
+            as.dist() %>%
+            adonis2(formula = . ~ Sample + Extraction, data = sample_metadata %>% arrange(match(dataset,colnames(genome_counts_filt))), permutations = 999, method = "bray", sqrt.dist = TRUE) %>%
+            broom::tidy() %>%
+            filter(term == "Model") %>%
+            select(R2) %>% pull()
+
+phylogenetic <- genome_counts_filt %>%
+            column_to_rownames(var="genome") %>%
+            select(where(~!all(. == 0))) %>%
+            hillpair(.,q=1, tree=genome_tree, metric="C") %>%
+            as.dist() %>%
+            adonis2(formula = . ~ Sample + Extraction, data = sample_metadata %>% arrange(match(dataset,colnames(genome_counts_filt))), permutations = 999, method = "bray", sqrt.dist = TRUE) %>%
+            broom::tidy() %>%
+            filter(term == "Model") %>%
+            select(R2) %>% pull()
+
+tibble(species=rep(species,3),metric=c("richness","neutral","phylogenetic"),r2=c(richness,neutral,phylogenetic)) %>%
+      write_tsv(paste0("results/var_",genus,".tsv"))
+```
+
+## ***Sciurus carolinensis***
+
+### Retrieve data
+
+```{r data_sciurus, warning=FALSE, comments="", message=FALSE}
+species="Sciurus carolinensis"
+genus=strsplit(species, " ")[[1]][1] %>% tolower()
+
+sample_metadata <- read_tsv(paste0("data/metadata.tsv")) %>%
+    rename(dataset=Dataset) %>%
+    filter(Species == species)
+
+
+read_counts <- read_tsv("https://sid.erda.dk/share_redirect/BaMZodj9sA/DMB/DMB0130/DMB0130_counts.tsv.gz") %>%
+  rename(genome = 1)
+
+genome_metadata <- read_tsv("https://sid.erda.dk/share_redirect/BaMZodj9sA/DMB/DMB0130/DMB0130_mag_info.tsv.gz") %>%
+  rename(genome = 1, length=mag_size)
+
+genome_coverage <- read_tsv("https://sid.erda.dk/share_redirect/BaMZodj9sA/DMB/DMB0130/DMB0130_coverage.tsv.gz") %>%
+  rename(genome = 1)
+
+download.file("https://sid.erda.dk/share_redirect/BaMZodj9sA/DMB/DMB0130/DMB0130.tree.gz", "data/DMB0130.tree.gz")
+genome_tree <- read_tree("data/DMB0130.tree.gz")
+```
+
+### Filter data
+
+```{r filter_sciurus, warning=FALSE, comments="", message=FALSE}
+#Filter by coverage
+min_coverage=0.3
+read_counts_filt <- genome_coverage %>%
+  mutate(across(where(is.numeric), ~ ifelse(. > min_coverage, 1, 0))) %>%
+  mutate(across(-1, ~ . * read_counts[[cur_column()]]))
+
+# Transform  to genome counts (non-filtered)
+readlength=150
+genome_counts <- read_counts %>%
+  mutate(across(where(is.numeric), ~ . / (genome_metadata$length / readlength) ))
+
+# Transform to genome counts (coverage-filtered)
+readlength=150
+genome_counts_filt <- read_counts_filt %>%
+  mutate(across(where(is.numeric), ~ . / (genome_metadata$length / readlength) ))
+```
+
+### Community barplot
+
+```{r barplot_sciurus, warning=FALSE, comments="", message=FALSE, fig.height=8, fig.width=10, fig.fullwidth=TRUE}
+# Retrieve EHI taxonomy colors
+phylum_colors <- read_tsv("https://raw.githubusercontent.com/earthhologenome/EHI_taxonomy_colour/main/ehi_phylum_colors.tsv") %>%
+  right_join(genome_metadata, by=join_by(phylum == phylum)) %>%
+    select(phylum, colors) %>%
+    unique() %>%
+    arrange(phylum) %>%
+    select(colors) %>%
+    pull()
+
+# Stacked barplot
+genome_counts %>%
+    mutate_at(vars(-genome), funs(./sum(., na.rm = TRUE)))  %>% #apply TSS nornalisation
+    pivot_longer(-genome, names_to = "dataset", values_to = "count") %>%
+    left_join(., genome_metadata, by = join_by(genome == genome)) %>% #append taxonomy
+    left_join(., sample_metadata, by = join_by(dataset == dataset)) %>% #append taxonomy
+    mutate(Extraction=factor(Extraction,levels=c("ZYMO","DREX","EHEX"))) %>%
+    ggplot(., aes(x=dataset,y=count,fill=phylum, group=phylum))+ #grouping enables keeping the same sorting of taxonomic units
+          geom_bar(stat="identity", colour="white", linewidth=0.1)+ #plot stacked bars with white borders
+          scale_fill_manual(values=phylum_colors) +
+          labs(y = "Relative abundance") +
+          facet_nested(. ~ Sample + Extraction, scales="free_x") +
+          guides(fill = guide_legend(ncol = 3)) +
+          theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1),
+                          axis.title.x = element_blank(),
+                panel.background = element_blank(),
+                panel.border = element_blank(),
+                panel.grid.major = element_blank(),
+                panel.grid.minor = element_blank(),
+                axis.line = element_line(linewidth = 0.5, linetype = "solid", colour = "black"),
+                legend.position="none",
+                legend.title=element_blank())
+
+ggsave(paste0("figures/barplot_",genus,".pdf"))
+```
+
+### Alpha diversity
+
+```{r alpha_sciurus, warning=FALSE, comments="", message=FALSE}
+#Calculate Hill numbers
+richness <- genome_counts_filt %>%
+            column_to_rownames(var="genome") %>%
+            select(where(~!all(. == 0))) %>%
+            hilldiv(.,q=0) %>%
+            t() %>%
+            as.data.frame() %>%
+            rename(richness=1) %>%
+            rownames_to_column(var="dataset")
+
+neutral <- genome_counts_filt %>%
+            column_to_rownames(var="genome") %>%
+            select(where(~!all(. == 0))) %>%
+            hilldiv(.,q=1) %>%
+            t() %>%
+            as.data.frame() %>%
+            rename(neutral=1) %>%
+            rownames_to_column(var="dataset")
+
+phylogenetic <- genome_counts_filt %>%
+            column_to_rownames(var="genome") %>%
+            select(where(~!all(. == 0))) %>%
+            hilldiv(.,q=1,tree=genome_tree) %>%
+            t() %>%
+            as.data.frame() %>%
+            rename(phylogenetic=1) %>%
+            rownames_to_column(var="dataset")
+
+# Merge alpha diversities
+alpha_diversity <- richness %>%
+      full_join(neutral,by=join_by(dataset==dataset)) %>%
+      full_join(phylogenetic,by=join_by(dataset==dataset))
+
+# Write alpha diversities
+alpha_diversity %>% write_tsv(paste0("results/alpha_",genus,".tsv"))
+
+# Print alpha diversity
+alpha_diversity %>%
+  left_join(sample_metadata %>% select(dataset,Extraction,Sample),by=join_by(dataset==dataset)) %>%
+  group_by(Extraction) %>%
+  summarise(richness=mean(richness), neutral=mean(neutral), phylogenetic=mean(phylogenetic)) %>%
+  tt()
+```
+
+### Beta diversity
+
+```{r beta_sciurus, warning=FALSE, comments="", message=FALSE}
+#Calculate Hill numbers
+richness <- genome_counts_filt %>%
+            column_to_rownames(var="genome") %>%
+            select(where(~!all(. == 0))) %>%
+            hillpair(.,q=0, metric="C", out="pair")
+
+neutral <- genome_counts_filt %>%
+            column_to_rownames(var="genome") %>%
+            select(where(~!all(. == 0))) %>%
+            hillpair(.,q=1, metric="C", out="pair")
+
+phylogenetic <- genome_counts_filt %>%
+            column_to_rownames(var="genome") %>%
+            select(where(~!all(. == 0))) %>%
+            hillpair(.,q=1, tree=genome_tree, metric="C", out="pair")
+
+# Merge beta diversities
+beta_diversity <- richness %>%
+      full_join(neutral,by=c("first", "second")) %>%
+      full_join(phylogenetic,by=c("first", "second")) %>%
+      rename(richness=C.x, neutral=C.y, phylogenetic=C)
+
+# Write beta diversities
+beta_diversity %>% write_tsv(paste0("results/beta_",genus,".tsv"))
+
+# Print beta diversities
+beta_diversity %>%
+  left_join(sample_metadata %>% select(dataset,Extraction,Sample),by=join_by(first==dataset)) %>%
+  left_join(sample_metadata %>% select(dataset,Extraction,Sample),by=join_by(second==dataset)) %>%
+  mutate(relationship = case_when(
+    Extraction.x == Extraction.y & Sample.x != Sample.y ~ "inter",
+    Extraction.x != Extraction.y & Sample.x == Sample.y ~ "intra",
+    TRUE ~ NA_character_  # Handle other cases if needed
+  )) %>%
+  filter(relationship != is.na(relationship)) %>%
+  group_by(relationship) %>%
+  summarise(richness=mean(richness), neutral=mean(neutral), phylogenetic=mean(phylogenetic)) %>%
+  tt()
+```
+
+### Variance partitioning
+
+```{r permanova_sciurus, warning=FALSE, comments="", message=FALSE}
+richness <-genome_counts_filt %>%
+            column_to_rownames(var="genome") %>%
+            select(where(~!all(. == 0))) %>%
+            hillpair(.,q=0, metric="C") %>%
+            as.dist() %>%
+            adonis2(formula = . ~ Sample + Extraction, data = sample_metadata %>% arrange(match(dataset,colnames(genome_counts_filt))), permutations = 999, method = "bray", sqrt.dist = TRUE) %>%
+            broom::tidy() %>%
+            filter(term == "Model") %>%
+            select(R2) %>% pull()
+
+neutral <- genome_counts_filt %>%
+            column_to_rownames(var="genome") %>%
+            select(where(~!all(. == 0))) %>%
+            hillpair(.,q=1, metric="C") %>%
+            as.dist() %>%
+            adonis2(formula = . ~ Sample + Extraction, data = sample_metadata %>% arrange(match(dataset,colnames(genome_counts_filt))), permutations = 999, method = "bray", sqrt.dist = TRUE) %>%
+            broom::tidy() %>%
+            filter(term == "Model") %>%
+            select(R2) %>% pull()
+
+phylogenetic <- genome_counts_filt %>%
+            column_to_rownames(var="genome") %>%
+            select(where(~!all(. == 0))) %>%
+            hillpair(.,q=1, tree=genome_tree, metric="C") %>%
+            as.dist() %>%
+            adonis2(formula = . ~ Sample + Extraction, data = sample_metadata %>% arrange(match(dataset,colnames(genome_counts_filt))), permutations = 999, method = "bray", sqrt.dist = TRUE) %>%
+            broom::tidy() %>%
+            filter(term == "Model") %>%
+            select(R2) %>% pull()
+
+tibble(species=rep(species,3),metric=c("richness","neutral","phylogenetic"),r2=c(richness,neutral,phylogenetic)) %>%
+      write_tsv(paste0("results/var_",genus,".tsv"))
+```
+
+## ***Trichosurus vulpecula***
+
+### Retrieve data
+
+```{r data_trichosurus, warning=FALSE, comments="", message=FALSE}
+species="Trichosurus vulpecula"
+genus=strsplit(species, " ")[[1]][1] %>% tolower()
+
+sample_metadata <- read_tsv(paste0("data/metadata.tsv")) %>%
+    rename(dataset=Dataset) %>%
+    filter(Species == species)
+
+read_counts <- read_tsv("https://sid.erda.dk/share_redirect/BaMZodj9sA/DMB/DMB0131/DMB0131_counts.tsv.gz") %>%
+  rename(genome = 1)
+
+genome_metadata <- read_tsv("https://sid.erda.dk/share_redirect/BaMZodj9sA/DMB/DMB0131/DMB0131_mag_info.tsv.gz") %>%
+  rename(genome = 1, length=mag_size)
+
+genome_coverage <- read_tsv("https://sid.erda.dk/share_redirect/BaMZodj9sA/DMB/DMB0131/DMB0131_coverage.tsv.gz") %>%
+  rename(genome = 1)
+
+download.file("https://sid.erda.dk/share_redirect/BaMZodj9sA/DMB/DMB0131/DMB0131.tree.gz", "data/DMB0131.tree.gz")
+genome_tree <- read_tree("data/DMB0131.tree.gz")
+```
+
+### Filter data
+
+```{r filter_trichosurus, warning=FALSE, comments="", message=FALSE}
+#Filter by coverage
+min_coverage=0.3
+read_counts_filt <- genome_coverage %>%
+  mutate(across(where(is.numeric), ~ ifelse(. > min_coverage, 1, 0))) %>%
+  mutate(across(-1, ~ . * read_counts[[cur_column()]]))
+
+# Transform  to genome counts (non-filtered)
+readlength=150
+genome_counts <- read_counts %>%
+  mutate(across(where(is.numeric), ~ . / (genome_metadata$length / readlength) ))
+
+# Transform to genome counts (coverage-filtered)
+readlength=150
+genome_counts_filt <- read_counts_filt %>%
+  mutate(across(where(is.numeric), ~ . / (genome_metadata$length / readlength) ))
+```
+
+### Community barplot
+
+```{r barplot_trichosurus, warning=FALSE, comments="", message=FALSE, fig.height=8, fig.width=10, fig.fullwidth=TRUE}
+# Retrieve EHI taxonomy colors
+phylum_colors <- read_tsv("https://raw.githubusercontent.com/earthhologenome/EHI_taxonomy_colour/main/ehi_phylum_colors.tsv") %>%
+  right_join(genome_metadata, by=join_by(phylum == phylum)) %>%
+    select(phylum, colors) %>%
+    unique() %>%
+    arrange(phylum) %>%
+    select(colors) %>%
+    pull()
+
+# Stacked barplot
+genome_counts %>%
+    mutate_at(vars(-genome), funs(./sum(., na.rm = TRUE)))  %>% #apply TSS nornalisation
+    pivot_longer(-genome, names_to = "dataset", values_to = "count") %>%
+    left_join(., genome_metadata, by = join_by(genome == genome)) %>% #append taxonomy
+    left_join(., sample_metadata, by = join_by(dataset == dataset)) %>% #append taxonomy
+    mutate(Extraction=factor(Extraction,levels=c("ZYMO","DREX","EHEX"))) %>%
+    ggplot(., aes(x=dataset,y=count,fill=phylum, group=phylum))+ #grouping enables keeping the same sorting of taxonomic units
+          geom_bar(stat="identity", colour="white", linewidth=0.1)+ #plot stacked bars with white borders
+          scale_fill_manual(values=phylum_colors) +
+          labs(y = "Relative abundance") +
+          facet_nested(. ~ Sample + Extraction, scales="free_x") +
+          guides(fill = guide_legend(ncol = 3)) +
+          theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1),
+                          axis.title.x = element_blank(),
+                panel.background = element_blank(),
+                panel.border = element_blank(),
+                panel.grid.major = element_blank(),
+                panel.grid.minor = element_blank(),
+                axis.line = element_line(linewidth = 0.5, linetype = "solid", colour = "black"),
+                legend.position="none",
+                legend.title=element_blank())
+
+ggsave(paste0("figures/barplot_",genus,".pdf"))
+```
+
+### Alpha diversity
+
+```{r alpha_trichosurus, warning=FALSE, comments="", message=FALSE}
+#Calculate Hill numbers
+richness <- genome_counts_filt %>%
+            column_to_rownames(var="genome") %>%
+            select(where(~!all(. == 0))) %>%
+            hilldiv(.,q=0) %>%
+            t() %>%
+            as.data.frame() %>%
+            rename(richness=1) %>%
+            rownames_to_column(var="dataset")
+
+neutral <- genome_counts_filt %>%
+            column_to_rownames(var="genome") %>%
+            select(where(~!all(. == 0))) %>%
+            hilldiv(.,q=1) %>%
+            t() %>%
+            as.data.frame() %>%
+            rename(neutral=1) %>%
+            rownames_to_column(var="dataset")
+
+phylogenetic <- genome_counts_filt %>%
+            column_to_rownames(var="genome") %>%
+            select(where(~!all(. == 0))) %>%
+            hilldiv(.,q=1,tree=genome_tree) %>%
+            t() %>%
+            as.data.frame() %>%
+            rename(phylogenetic=1) %>%
+            rownames_to_column(var="dataset")
+
+# Merge alpha diversities
+alpha_diversity <- richness %>%
+      full_join(neutral,by=join_by(dataset==dataset)) %>%
+      full_join(phylogenetic,by=join_by(dataset==dataset))
+
+# Write alpha diversities
+alpha_diversity %>% write_tsv(paste0("results/alpha_",genus,".tsv"))
+
+# Print alpha diversity
+alpha_diversity %>%
+  left_join(sample_metadata %>% select(dataset,Extraction,Sample),by=join_by(dataset==dataset)) %>%
+  group_by(Extraction) %>%
+  summarise(richness=mean(richness), neutral=mean(neutral), phylogenetic=mean(phylogenetic)) %>%
+  tt()
+```
+
+### Beta diversity
+
+```{r beta_trichosurus, warning=FALSE, comments="", message=FALSE}
+#Calculate Hill numbers
+richness <- genome_counts_filt %>%
+            column_to_rownames(var="genome") %>%
+            select(where(~!all(. == 0))) %>%
+            hillpair(.,q=0, metric="C", out="pair")
+
+neutral <- genome_counts_filt %>%
+            column_to_rownames(var="genome") %>%
+            select(where(~!all(. == 0))) %>%
+            hillpair(.,q=1, metric="C", out="pair")
+
+phylogenetic <- genome_counts_filt %>%
+            column_to_rownames(var="genome") %>%
+            select(where(~!all(. == 0))) %>%
+            hillpair(.,q=1, tree=genome_tree, metric="C", out="pair")
+
+# Merge beta diversities
+beta_diversity <- richness %>%
+      full_join(neutral,by=c("first", "second")) %>%
+      full_join(phylogenetic,by=c("first", "second")) %>%
+      rename(richness=C.x, neutral=C.y, phylogenetic=C)
+
+# Write beta diversities
+beta_diversity %>% write_tsv(paste0("results/beta_",genus,".tsv"))
+
+# Print beta diversities
+beta_diversity %>%
+  left_join(sample_metadata %>% select(dataset,Extraction,Sample),by=join_by(first==dataset)) %>%
+  left_join(sample_metadata %>% select(dataset,Extraction,Sample),by=join_by(second==dataset)) %>%
+  mutate(relationship = case_when(
+    Extraction.x == Extraction.y & Sample.x != Sample.y ~ "inter",
+    Extraction.x != Extraction.y & Sample.x == Sample.y ~ "intra",
+    TRUE ~ NA_character_  # Handle other cases if needed
+  )) %>%
+  filter(relationship != is.na(relationship)) %>%
+  group_by(relationship) %>%
+  summarise(richness=mean(richness), neutral=mean(neutral), phylogenetic=mean(phylogenetic)) %>%
+  tt()
+```
+
+### Variance partitioning
+
+Variance partitioning was not conducted because EHI02106 failed to yield any data.
+
+# Reptiles
+
+## ***Chalcides striatus***
+
+### Retrieve data
+
+```{r data_chalcides, warning=FALSE, comments="", message=FALSE}
+species="Chalcides striatus"
+genus=strsplit(species, " ")[[1]][1] %>% tolower()
+
+sample_metadata <- read_tsv(paste0("data/metadata.tsv")) %>%
+    rename(dataset=Dataset) %>%
+    filter(Species == species)
+
+
+read_counts <- read_tsv("https://sid.erda.dk/share_redirect/BaMZodj9sA/DMB/DMB0122/DMB0122_counts.tsv.gz") %>%
+  rename(genome = 1)
+
+genome_metadata <- read_tsv("https://sid.erda.dk/share_redirect/BaMZodj9sA/DMB/DMB0122/DMB0122_mag_info.tsv.gz") %>%
+  rename(genome = 1, length=mag_size)
+
+genome_coverage <- read_tsv("https://sid.erda.dk/share_redirect/BaMZodj9sA/DMB/DMB0122/DMB0122_coverage.tsv.gz") %>%
+  rename(genome = 1)
+
+download.file("https://sid.erda.dk/share_redirect/BaMZodj9sA/DMB/DMB0122/DMB0122.tree.gz", "data/DMB0122.tree.gz")
+genome_tree <- read_tree("data/DMB0122.tree.gz")
+```
+
+### Filter data
+
+```{r filter_chalcides, warning=FALSE, comments="", message=FALSE}
+#Filter by coverage
+min_coverage=0.3
+read_counts_filt <- genome_coverage %>%
+  mutate(across(where(is.numeric), ~ ifelse(. > min_coverage, 1, 0))) %>%
+  mutate(across(-1, ~ . * read_counts[[cur_column()]]))
+
+# Transform  to genome counts (non-filtered)
+readlength=150
+genome_counts <- read_counts %>%
+  mutate(across(where(is.numeric), ~ . / (genome_metadata$length / readlength) ))
+
+# Transform to genome counts (coverage-filtered)
+readlength=150
+genome_counts_filt <- read_counts_filt %>%
+  mutate(across(where(is.numeric), ~ . / (genome_metadata$length / readlength) ))
+```
+
+### Community barplot
+
+```{r barplot_chalcides, warning=FALSE, comments="", message=FALSE, fig.height=8, fig.width=10, fig.fullwidth=TRUE}
+# Retrieve EHI taxonomy colors
+phylum_colors <- read_tsv("https://raw.githubusercontent.com/earthhologenome/EHI_taxonomy_colour/main/ehi_phylum_colors.tsv") %>%
+  right_join(genome_metadata, by=join_by(phylum == phylum)) %>%
+    select(phylum, colors) %>%
+    unique() %>%
+    arrange(phylum) %>%
+    select(colors) %>%
+    pull()
+
+# Stacked barplot
+genome_counts %>%
+    mutate_at(vars(-genome), funs(./sum(., na.rm = TRUE)))  %>% #apply TSS nornalisation
+    pivot_longer(-genome, names_to = "dataset", values_to = "count") %>%
+    left_join(., genome_metadata, by = join_by(genome == genome)) %>% #append taxonomy
+    left_join(., sample_metadata, by = join_by(dataset == dataset)) %>% #append taxonomy
+    mutate(Extraction=factor(Extraction,levels=c("ZYMO","DREX","EHEX"))) %>%
+    ggplot(., aes(x=dataset,y=count,fill=phylum, group=phylum))+ #grouping enables keeping the same sorting of taxonomic units
+          geom_bar(stat="identity", colour="white", linewidth=0.1)+ #plot stacked bars with white borders
+          scale_fill_manual(values=phylum_colors) +
+          labs(y = "Relative abundance") +
+          facet_nested(. ~ Sample + Extraction, scales="free_x") +
+          guides(fill = guide_legend(ncol = 3)) +
+          theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1),
+                          axis.title.x = element_blank(),
+                panel.background = element_blank(),
+                panel.border = element_blank(),
+                panel.grid.major = element_blank(),
+                panel.grid.minor = element_blank(),
+                axis.line = element_line(linewidth = 0.5, linetype = "solid", colour = "black"),
+                legend.position="none",
+                legend.title=element_blank())
+
+ggsave(paste0("figures/barplot_",genus,".pdf"))
+```
+
+### Alpha diversity
+
+```{r alpha_chalcides, warning=FALSE, comments="", message=FALSE}
+#Calculate Hill numbers
+richness <- genome_counts_filt %>%
+            column_to_rownames(var="genome") %>%
+            select(where(~!all(. == 0))) %>%
+            hilldiv(.,q=0) %>%
+            t() %>%
+            as.data.frame() %>%
+            rename(richness=1) %>%
+            rownames_to_column(var="dataset")
+
+neutral <- genome_counts_filt %>%
+            column_to_rownames(var="genome") %>%
+            select(where(~!all(. == 0))) %>%
+            hilldiv(.,q=1) %>%
+            t() %>%
+            as.data.frame() %>%
+            rename(neutral=1) %>%
+            rownames_to_column(var="dataset")
+
+phylogenetic <- genome_counts_filt %>%
+            column_to_rownames(var="genome") %>%
+            select(where(~!all(. == 0))) %>%
+            hilldiv(.,q=1,tree=genome_tree) %>%
+            t() %>%
+            as.data.frame() %>%
+            rename(phylogenetic=1) %>%
+            rownames_to_column(var="dataset")
+
+# Merge alpha diversities
+alpha_diversity <- richness %>%
+      full_join(neutral,by=join_by(dataset==dataset)) %>%
+      full_join(phylogenetic,by=join_by(dataset==dataset))
+
+# Write alpha diversities
+alpha_diversity %>% write_tsv(paste0("results/alpha_",genus,".tsv"))
+
+# Print alpha diversity
+alpha_diversity %>%
+  left_join(sample_metadata %>% select(dataset,Extraction,Sample),by=join_by(dataset==dataset)) %>%
+  group_by(Extraction) %>%
+  summarise(richness=mean(richness), neutral=mean(neutral), phylogenetic=mean(phylogenetic)) %>%
+  tt()
+```
+
+### Beta diversity
+
+```{r beta_chalcides, warning=FALSE, comments="", message=FALSE}
+#Calculate Hill numbers
+richness <- genome_counts_filt %>%
+            column_to_rownames(var="genome") %>%
+            select(where(~!all(. == 0))) %>%
+            hillpair(.,q=0, metric="C", out="pair")
+
+neutral <- genome_counts_filt %>%
+            column_to_rownames(var="genome") %>%
+            select(where(~!all(. == 0))) %>%
+            hillpair(.,q=1, metric="C", out="pair")
+
+phylogenetic <- genome_counts_filt %>%
+            column_to_rownames(var="genome") %>%
+            select(where(~!all(. == 0))) %>%
+            hillpair(.,q=1, tree=genome_tree, metric="C", out="pair")
+
+# Merge beta diversities
+beta_diversity <- richness %>%
+      full_join(neutral,by=c("first", "second")) %>%
+      full_join(phylogenetic,by=c("first", "second")) %>%
+      rename(richness=C.x, neutral=C.y, phylogenetic=C)
+
+# Write beta diversities
+beta_diversity %>% write_tsv(paste0("results/beta_",genus,".tsv"))
+
+# Print beta diversities
+beta_diversity %>%
+  left_join(sample_metadata %>% select(dataset,Extraction,Sample),by=join_by(first==dataset)) %>%
+  left_join(sample_metadata %>% select(dataset,Extraction,Sample),by=join_by(second==dataset)) %>%
+  mutate(relationship = case_when(
+    Extraction.x == Extraction.y & Sample.x != Sample.y ~ "inter",
+    Extraction.x != Extraction.y & Sample.x == Sample.y ~ "intra",
+    TRUE ~ NA_character_  # Handle other cases if needed
+  )) %>%
+  filter(relationship != is.na(relationship)) %>%
+  group_by(relationship) %>%
+  summarise(richness=mean(richness), neutral=mean(neutral), phylogenetic=mean(phylogenetic)) %>%
+  tt()
+```
+
+### Variance partitioning
+
+```{r permanova_chalcides, warning=FALSE, comments="", message=FALSE}
+richness <-genome_counts_filt %>%
+            column_to_rownames(var="genome") %>%
+            select(where(~!all(. == 0))) %>%
+            hillpair(.,q=0, metric="C") %>%
+            as.dist() %>%
+            adonis2(formula = . ~ Sample + Extraction, data = sample_metadata %>% arrange(match(dataset,colnames(genome_counts_filt))), permutations = 999, method = "bray", sqrt.dist = TRUE) %>%
+            broom::tidy() %>%
+            filter(term == "Model") %>%
+            select(R2) %>% pull()
+
+neutral <- genome_counts_filt %>%
+            column_to_rownames(var="genome") %>%
+            select(where(~!all(. == 0))) %>%
+            hillpair(.,q=1, metric="C") %>%
+            as.dist() %>%
+            adonis2(formula = . ~ Sample + Extraction, data = sample_metadata %>% arrange(match(dataset,colnames(genome_counts_filt))), permutations = 999, method = "bray", sqrt.dist = TRUE) %>%
+            broom::tidy() %>%
+            filter(term == "Model") %>%
+            select(R2) %>% pull()
+
+phylogenetic <- genome_counts_filt %>%
+            column_to_rownames(var="genome") %>%
+            select(where(~!all(. == 0))) %>%
+            hillpair(.,q=1, tree=genome_tree, metric="C") %>%
+            as.dist() %>%
+            adonis2(formula = . ~ Sample + Extraction, data = sample_metadata %>% arrange(match(dataset,colnames(genome_counts_filt))), permutations = 999, method = "bray", sqrt.dist = TRUE) %>%
+            broom::tidy() %>%
+            filter(term == "Model") %>%
+            select(R2) %>% pull()
+
+tibble(species=rep(species,3),metric=c("richness","neutral","phylogenetic"),r2=c(richness,neutral,phylogenetic)) %>%
+      write_tsv(paste0("results/var_",genus,".tsv"))
+```
+
+## ***Natrix astreptophora***
+
+### Retrieve data
+
+```{r data_natrix, warning=FALSE, comments="", message=FALSE}
+species="Natrix astreptophora"
+genus=strsplit(species, " ")[[1]][1] %>% tolower()
+
+sample_metadata <- read_tsv(paste0("data/metadata.tsv")) %>%
+    rename(dataset=Dataset) %>%
+    filter(Species == species)
+
+
+read_counts <- read_tsv("https://sid.erda.dk/share_redirect/BaMZodj9sA/DMB/DMB0125/DMB0125_counts.tsv.gz") %>%
+  rename(genome = 1)
+
+genome_metadata <- read_tsv("https://sid.erda.dk/share_redirect/BaMZodj9sA/DMB/DMB0125/DMB0125_mag_info.tsv.gz") %>%
+  rename(genome = 1, length=mag_size)
+
+genome_coverage <- read_tsv("https://sid.erda.dk/share_redirect/BaMZodj9sA/DMB/DMB0125/DMB0125_coverage.tsv.gz") %>%
+  rename(genome = 1)
+
+download.file("https://sid.erda.dk/share_redirect/BaMZodj9sA/DMB/DMB0125/DMB0125.tree.gz", "data/DMB0125.tree.gz")
+genome_tree <- read_tree("data/DMB0125.tree.gz")
+```
+
+### Filter data
+
+```{r filter_natrix, warning=FALSE, comments="", message=FALSE}
+#Filter by coverage
+min_coverage=0.3
+read_counts_filt <- genome_coverage %>%
+  mutate(across(where(is.numeric), ~ ifelse(. > min_coverage, 1, 0))) %>%
+  mutate(across(-1, ~ . * read_counts[[cur_column()]]))
+
+# Transform  to genome counts (non-filtered)
+readlength=150
+genome_counts <- read_counts %>%
+  mutate(across(where(is.numeric), ~ . / (genome_metadata$length / readlength) ))
+
+# Transform to genome counts (coverage-filtered)
+readlength=150
+genome_counts_filt <- read_counts_filt %>%
+  mutate(across(where(is.numeric), ~ . / (genome_metadata$length / readlength) ))
+```
+
+### Community barplot
+
+```{r barplot_natrix, warning=FALSE, comments="", message=FALSE, fig.height=8, fig.width=10, fig.fullwidth=TRUE}
+# Retrieve EHI taxonomy colors
+phylum_colors <- read_tsv("https://raw.githubusercontent.com/earthhologenome/EHI_taxonomy_colour/main/ehi_phylum_colors.tsv") %>%
+  right_join(genome_metadata, by=join_by(phylum == phylum)) %>%
+    select(phylum, colors) %>%
+    unique() %>%
+    arrange(phylum) %>%
+    select(colors) %>%
+    pull()
+
+# Stacked barplot
+genome_counts %>%
+    mutate_at(vars(-genome), funs(./sum(., na.rm = TRUE)))  %>% #apply TSS nornalisation
+    pivot_longer(-genome, names_to = "dataset", values_to = "count") %>%
+    left_join(., genome_metadata, by = join_by(genome == genome)) %>% #append taxonomy
+    left_join(., sample_metadata, by = join_by(dataset == dataset)) %>% #append taxonomy
+    mutate(Extraction=factor(Extraction,levels=c("ZYMO","DREX","EHEX"))) %>%
+    ggplot(., aes(x=dataset,y=count,fill=phylum, group=phylum))+ #grouping enables keeping the same sorting of taxonomic units
+          geom_bar(stat="identity", colour="white", linewidth=0.1)+ #plot stacked bars with white borders
+          scale_fill_manual(values=phylum_colors) +
+          labs(y = "Relative abundance") +
+          facet_nested(. ~ Sample + Extraction, scales="free_x") +
+          guides(fill = guide_legend(ncol = 3)) +
+          theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1),
+                          axis.title.x = element_blank(),
+                panel.background = element_blank(),
+                panel.border = element_blank(),
+                panel.grid.major = element_blank(),
+                panel.grid.minor = element_blank(),
+                axis.line = element_line(linewidth = 0.5, linetype = "solid", colour = "black"),
+                legend.position="none",
+                legend.title=element_blank())
+
+ggsave(paste0("figures/barplot_",genus,".pdf"))
+```
+
+### Alpha diversity
+
+```{r alpha_natrix, warning=FALSE, comments="", message=FALSE}
+#Calculate Hill numbers
+richness <- genome_counts_filt %>%
+            column_to_rownames(var="genome") %>%
+            select(where(~!all(. == 0))) %>%
+            hilldiv(.,q=0) %>%
+            t() %>%
+            as.data.frame() %>%
+            rename(richness=1) %>%
+            rownames_to_column(var="dataset")
+
+neutral <- genome_counts_filt %>%
+            column_to_rownames(var="genome") %>%
+            select(where(~!all(. == 0))) %>%
+            hilldiv(.,q=1) %>%
+            t() %>%
+            as.data.frame() %>%
+            rename(neutral=1) %>%
+            rownames_to_column(var="dataset")
+
+phylogenetic <- genome_counts_filt %>%
+            column_to_rownames(var="genome") %>%
+            select(where(~!all(. == 0))) %>%
+            hilldiv(.,q=1,tree=genome_tree) %>%
+            t() %>%
+            as.data.frame() %>%
+            rename(phylogenetic=1) %>%
+            rownames_to_column(var="dataset")
+
+# Merge alpha diversities
+alpha_diversity <- richness %>%
+      full_join(neutral,by=join_by(dataset==dataset)) %>%
+      full_join(phylogenetic,by=join_by(dataset==dataset))
+
+# Write alpha diversities
+alpha_diversity %>% write_tsv(paste0("results/alpha_",genus,".tsv"))
+
+# Print alpha diversity
+alpha_diversity %>%
+  left_join(sample_metadata %>% select(dataset,Extraction,Sample),by=join_by(dataset==dataset)) %>%
+  group_by(Extraction) %>%
+  summarise(richness=mean(richness), neutral=mean(neutral), phylogenetic=mean(phylogenetic)) %>%
+  tt()
+```
+
+### Beta diversity
+
+```{r beta_natrix, warning=FALSE, comments="", message=FALSE}
+#Calculate Hill numbers
+richness <- genome_counts_filt %>%
+            column_to_rownames(var="genome") %>%
+            select(where(~!all(. == 0))) %>%
+            hillpair(.,q=0, metric="C", out="pair")
+
+neutral <- genome_counts_filt %>%
+            column_to_rownames(var="genome") %>%
+            select(where(~!all(. == 0))) %>%
+            hillpair(.,q=1, metric="C", out="pair")
+
+phylogenetic <- genome_counts_filt %>%
+            column_to_rownames(var="genome") %>%
+            select(where(~!all(. == 0))) %>%
+            hillpair(.,q=1, tree=genome_tree, metric="C", out="pair")
+
+# Merge beta diversities
+beta_diversity <- richness %>%
+      full_join(neutral,by=c("first", "second")) %>%
+      full_join(phylogenetic,by=c("first", "second")) %>%
+      rename(richness=C.x, neutral=C.y, phylogenetic=C)
+
+# Write beta diversities
+beta_diversity %>% write_tsv(paste0("results/beta_",genus,".tsv"))
+
+# Print beta diversities
+beta_diversity %>%
+  left_join(sample_metadata %>% select(dataset,Extraction,Sample),by=join_by(first==dataset)) %>%
+  left_join(sample_metadata %>% select(dataset,Extraction,Sample),by=join_by(second==dataset)) %>%
+  mutate(relationship = case_when(
+    Extraction.x == Extraction.y & Sample.x != Sample.y ~ "inter",
+    Extraction.x != Extraction.y & Sample.x == Sample.y ~ "intra",
+    TRUE ~ NA_character_  # Handle other cases if needed
+  )) %>%
+  filter(relationship != is.na(relationship)) %>%
+  group_by(relationship) %>%
+  summarise(richness=mean(richness), neutral=mean(neutral), phylogenetic=mean(phylogenetic)) %>%
+  tt()
+```
+
+### Variance partitioning
+
+```{r permanova_natrix, warning=FALSE, comments="", message=FALSE}
+richness <-genome_counts_filt %>%
+            column_to_rownames(var="genome") %>%
+            select(where(~!all(. == 0))) %>%
+            hillpair(.,q=0, metric="C") %>%
+            as.dist() %>%
+            adonis2(formula = . ~ Sample + Extraction, data = sample_metadata %>% arrange(match(dataset,colnames(genome_counts_filt))), permutations = 999, method = "bray", sqrt.dist = TRUE) %>%
+            broom::tidy() %>%
+            filter(term == "Model") %>%
+            select(R2) %>% pull()
+
+neutral <- genome_counts_filt %>%
+            column_to_rownames(var="genome") %>%
+            select(where(~!all(. == 0))) %>%
+            hillpair(.,q=1, metric="C") %>%
+            as.dist() %>%
+            adonis2(formula = . ~ Sample + Extraction, data = sample_metadata %>% arrange(match(dataset,colnames(genome_counts_filt))), permutations = 999, method = "bray", sqrt.dist = TRUE) %>%
+            broom::tidy() %>%
+            filter(term == "Model") %>%
+            select(R2) %>% pull()
+
+phylogenetic <- genome_counts_filt %>%
+            column_to_rownames(var="genome") %>%
+            select(where(~!all(. == 0))) %>%
+            hillpair(.,q=1, tree=genome_tree, metric="C") %>%
+            as.dist() %>%
+            adonis2(formula = . ~ Sample + Extraction, data = sample_metadata %>% arrange(match(dataset,colnames(genome_counts_filt))), permutations = 999, method = "bray", sqrt.dist = TRUE) %>%
+            broom::tidy() %>%
+            filter(term == "Model") %>%
+            select(R2) %>% pull()
+
+tibble(species=rep(species,3),metric=c("richness","neutral","phylogenetic"),r2=c(richness,neutral,phylogenetic)) %>%
+      write_tsv(paste0("results/var_",genus,".tsv"))
+```
+
+## ***Podarcis muralis***
+
+### Retrieve data
+
+```{r data_podarcis, warning=FALSE, comments="", message=FALSE}
+species="Podarcis muralis"
+genus=strsplit(species, " ")[[1]][1] %>% tolower()
+
+sample_metadata <- read_tsv(paste0("data/metadata.tsv")) %>%
+    rename(dataset=Dataset) %>%
+    filter(Species == species)
+
+
+read_counts <- read_tsv("https://sid.erda.dk/share_redirect/BaMZodj9sA/DMB/DMB0128/DMB0128_counts.tsv.gz") %>%
+  rename(genome = 1)
+
+genome_metadata <- read_tsv("https://sid.erda.dk/share_redirect/BaMZodj9sA/DMB/DMB0128/DMB0128_mag_info.tsv.gz") %>%
+  rename(genome = 1, length=mag_size)
+
+genome_coverage <- read_tsv("https://sid.erda.dk/share_redirect/BaMZodj9sA/DMB/DMB0128/DMB0128_coverage.tsv.gz") %>%
+  rename(genome = 1)
+
+download.file("https://sid.erda.dk/share_redirect/BaMZodj9sA/DMB/DMB0128/DMB0128.tree.gz", "data/DMB0128.tree.gz")
+genome_tree <- read_tree("data/DMB0128.tree.gz")
+```
+
+### Filter data
+
+```{r filter_podarcis, warning=FALSE, comments="", message=FALSE}
+#Filter by coverage
+min_coverage=0.3
+read_counts_filt <- genome_coverage %>%
+  mutate(across(where(is.numeric), ~ ifelse(. > min_coverage, 1, 0))) %>%
+  mutate(across(-1, ~ . * read_counts[[cur_column()]]))
+
+# Transform  to genome counts (non-filtered)
+readlength=150
+genome_counts <- read_counts %>%
+  mutate(across(where(is.numeric), ~ . / (genome_metadata$length / readlength) ))
+
+# Transform to genome counts (coverage-filtered)
+readlength=150
+genome_counts_filt <- read_counts_filt %>%
+  mutate(across(where(is.numeric), ~ . / (genome_metadata$length / readlength) ))
+```
+
+### Community barplot
+
+```{r barplot_podarcis, warning=FALSE, comments="", message=FALSE, fig.height=8, fig.width=10, fig.fullwidth=TRUE}
+# Retrieve EHI taxonomy colors
+phylum_colors <- read_tsv("https://raw.githubusercontent.com/earthhologenome/EHI_taxonomy_colour/main/ehi_phylum_colors.tsv") %>%
+  right_join(genome_metadata, by=join_by(phylum == phylum)) %>%
+    select(phylum, colors) %>%
+    unique() %>%
+    arrange(phylum) %>%
+    select(colors) %>%
+    pull()
+
+# Stacked barplot
+genome_counts %>%
+    mutate_at(vars(-genome), funs(./sum(., na.rm = TRUE)))  %>% #apply TSS nornalisation
+    pivot_longer(-genome, names_to = "dataset", values_to = "count") %>%
+    left_join(., genome_metadata, by = join_by(genome == genome)) %>% #append taxonomy
+    left_join(., sample_metadata, by = join_by(dataset == dataset)) %>% #append taxonomy
+    mutate(Extraction=factor(Extraction,levels=c("ZYMO","DREX","EHEX"))) %>%
+    ggplot(., aes(x=dataset,y=count,fill=phylum, group=phylum))+ #grouping enables keeping the same sorting of taxonomic units
+          geom_bar(stat="identity", colour="white", linewidth=0.1)+ #plot stacked bars with white borders
+          scale_fill_manual(values=phylum_colors) +
+          labs(y = "Relative abundance") +
+          facet_nested(. ~ Sample + Extraction, scales="free_x") +
+          guides(fill = guide_legend(ncol = 3)) +
+          theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1),
+                          axis.title.x = element_blank(),
+                panel.background = element_blank(),
+                panel.border = element_blank(),
+                panel.grid.major = element_blank(),
+                panel.grid.minor = element_blank(),
+                axis.line = element_line(linewidth = 0.5, linetype = "solid", colour = "black"),
+                legend.position="none",
+                legend.title=element_blank())
+
+ggsave(paste0("figures/barplot_",genus,".pdf"))
+```
+
+### Alpha diversity
+
+```{r alpha_podarcis, warning=FALSE, comments="", message=FALSE}
+#Calculate Hill numbers
+richness <- genome_counts_filt %>%
+            column_to_rownames(var="genome") %>%
+            select(where(~!all(. == 0))) %>%
+            hilldiv(.,q=0) %>%
+            t() %>%
+            as.data.frame() %>%
+            rename(richness=1) %>%
+            rownames_to_column(var="dataset")
+
+neutral <- genome_counts_filt %>%
+            column_to_rownames(var="genome") %>%
+            select(where(~!all(. == 0))) %>%
+            hilldiv(.,q=1) %>%
+            t() %>%
+            as.data.frame() %>%
+            rename(neutral=1) %>%
+            rownames_to_column(var="dataset")
+
+phylogenetic <- genome_counts_filt %>%
+            column_to_rownames(var="genome") %>%
+            select(where(~!all(. == 0))) %>%
+            hilldiv(.,q=1,tree=genome_tree) %>%
+            t() %>%
+            as.data.frame() %>%
+            rename(phylogenetic=1) %>%
+            rownames_to_column(var="dataset")
+
+# Merge alpha diversities
+alpha_diversity <- richness %>%
+      full_join(neutral,by=join_by(dataset==dataset)) %>%
+      full_join(phylogenetic,by=join_by(dataset==dataset))
+
+# Write alpha diversities
+alpha_diversity %>% write_tsv(paste0("results/alpha_",genus,".tsv"))
+
+# Print alpha diversity
+alpha_diversity %>%
+  left_join(sample_metadata %>% select(dataset,Extraction,Sample),by=join_by(dataset==dataset)) %>%
+  group_by(Extraction) %>%
+  summarise(richness=mean(richness), neutral=mean(neutral), phylogenetic=mean(phylogenetic)) %>%
+  tt()
+```
+
+### Beta diversity
+
+```{r beta_podarcis, warning=FALSE, comments="", message=FALSE}
+#Calculate Hill numbers
+richness <- genome_counts_filt %>%
+            column_to_rownames(var="genome") %>%
+            select(where(~!all(. == 0))) %>%
+            hillpair(.,q=0, metric="C", out="pair")
+
+neutral <- genome_counts_filt %>%
+            column_to_rownames(var="genome") %>%
+            select(where(~!all(. == 0))) %>%
+            hillpair(.,q=1, metric="C", out="pair")
+
+phylogenetic <- genome_counts_filt %>%
+            column_to_rownames(var="genome") %>%
+            select(where(~!all(. == 0))) %>%
+            hillpair(.,q=1, tree=genome_tree, metric="C", out="pair")
+
+# Merge beta diversities
+beta_diversity <- richness %>%
+      full_join(neutral,by=c("first", "second")) %>%
+      full_join(phylogenetic,by=c("first", "second")) %>%
+      rename(richness=C.x, neutral=C.y, phylogenetic=C)
+
+# Write beta diversities
+beta_diversity %>% write_tsv(paste0("results/beta_",genus,".tsv"))
+
+# Print beta diversities
+beta_diversity %>%
+  left_join(sample_metadata %>% select(dataset,Extraction,Sample),by=join_by(first==dataset)) %>%
+  left_join(sample_metadata %>% select(dataset,Extraction,Sample),by=join_by(second==dataset)) %>%
+  mutate(relationship = case_when(
+    Extraction.x == Extraction.y & Sample.x != Sample.y ~ "inter",
+    Extraction.x != Extraction.y & Sample.x == Sample.y ~ "intra",
+    TRUE ~ NA_character_  # Handle other cases if needed
+  )) %>%
+  filter(relationship != is.na(relationship)) %>%
+  group_by(relationship) %>%
+  summarise(richness=mean(richness), neutral=mean(neutral), phylogenetic=mean(phylogenetic)) %>%
+  tt()
+```
+
+### Variance partitioning
+
+```{r permanova_podarcis, warning=FALSE, comments="", message=FALSE}
+richness <-genome_counts_filt %>%
+            column_to_rownames(var="genome") %>%
+            select(where(~!all(. == 0))) %>%
+            hillpair(.,q=0, metric="C") %>%
+            as.dist() %>%
+            adonis2(formula = . ~ Sample + Extraction, data = sample_metadata %>% arrange(match(dataset,colnames(genome_counts_filt))), permutations = 999, method = "bray", sqrt.dist = TRUE) %>%
+            broom::tidy() %>%
+            filter(term == "Model") %>%
+            select(R2) %>% pull()
+
+neutral <- genome_counts_filt %>%
+            column_to_rownames(var="genome") %>%
+            select(where(~!all(. == 0))) %>%
+            hillpair(.,q=1, metric="C") %>%
+            as.dist() %>%
+            adonis2(formula = . ~ Sample + Extraction, data = sample_metadata %>% arrange(match(dataset,colnames(genome_counts_filt))), permutations = 999, method = "bray", sqrt.dist = TRUE) %>%
+            broom::tidy() %>%
+            filter(term == "Model") %>%
+            select(R2) %>% pull()
+
+phylogenetic <- genome_counts_filt %>%
+            column_to_rownames(var="genome") %>%
+            select(where(~!all(. == 0))) %>%
+            hillpair(.,q=1, tree=genome_tree, metric="C") %>%
+            as.dist() %>%
+            adonis2(formula = . ~ Sample + Extraction, data = sample_metadata %>% arrange(match(dataset,colnames(genome_counts_filt))), permutations = 999, method = "bray", sqrt.dist = TRUE) %>%
+            broom::tidy() %>%
+            filter(term == "Model") %>%
+            select(R2) %>% pull()
+
+tibble(species=rep(species,3),metric=c("richness","neutral","phylogenetic"),r2=c(richness,neutral,phylogenetic)) %>%
+      write_tsv(paste0("results/var_",genus,".tsv"))
+```
+

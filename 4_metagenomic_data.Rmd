@@ -1,24 +1,5 @@
 # Metagenomic data
 
-Species-specific community analyses conducted to generate the data included in these analyses can be found in the annex.
-
-- **[Amphibians](#amphibians)**
-  - *[Calotriton asper](#calotriton-asper)*
-  - *[Lissotriton helveticus](#lissotriton-helveticus)*
-  - *[Salamandra atra](#salamandra-atra)*
-- **[Birds](#birds)**
-  - *[Geospizopsis unicolor](#geospizopsis-unicolor)*
-  - *[Perisoreus infaustus](#perisoreus-infaustus)*
-  - *[Zonotrichia capensis](#zonotrichia-capensis)*
-- **[Mammals](#mammals)**
-  - *[Plecotus auritus](#plecotus-auritus)*
-  - *[Sciurus carolinensis](#sciurus-carolinensis)*
-  - *[Trichosurus vulpecula](#trichosurus-vulpecula)*
-- **[Reptiles](#reptiles)**
-  - *[Chalcides striatus](#chalcides-striatus)*
-  - *[Natrix astreptophora](#natrix-astreptophora)*
-  - *[Podarcis muralis](#podarcis-muralis)*
-
 ## Library complexity
 
 Nonpareil estimate of the metagenomic complexity after removing host DNA.
@@ -48,153 +29,48 @@ all_data %>%
 
 ```{r nonpareil_test, warning=FALSE, comments="", message=FALSE}
 all_data  %>%
-    select(dataset,Extraction,Sample,Species,nonpareil,Taxon) %>%
+    select(dataset,Extraction,Sample,Species,nonpareil,Taxon,catalogue) %>%
     unique() %>%
-    mutate(Extraction=factor(Extraction,levels=c("ZYMO","DREX","EHEX"))) %>%
     filter(Taxon != "Control") %>%
-    lmerTest::lmer(nonpareil ~ Extraction + (1 | Sample) + (1 | Species), data = ., REML = FALSE) %>%
-    broom.mixed::tidy() %>%
+    #filter(catalogue != "All") %>%
+    MASS::glmmPQL(nonpareil~ Taxon+Extraction,random=~1|Species/Sample,
+               family="quasibinomial",data=.) %>%
+    car::Anova(.,test.statistic="Wald")
+
+data<-all_data  %>%
+    select(dataset,Extraction,Sample,Species,nonpareil,Taxon,catalogue) %>%
+    unique() %>%
+    filter(Taxon != "Control") #%>% filter(catalogue != "All")
+M<-MASS::glmmPQL(nonpareil~ Taxon+Extraction,random=~1|Species/Sample,
+               family="quasibinomial",data=data)
+
+Anova_table<-car::Anova(M,test.statistic="Wald",type="III")%>%
+    mutate(F=Chisq/Df) # Approximate F value
+n <- nrow(M$data)  # Total number of observations
+df_fixed <- length(fixef(M))  # Number of fixed effect parameters
+df_random <- length(ranef(M))  # Number of random effect parameters (or levels)
+approx_residual_df <- n - df_fixed - df_random # Approx. residual Df
+data.frame(Anova_table,
+           p_value=pf(Anova_table$F, Anova_table$Df, approx_residual_df, lower.tail = FALSE))%>%
+  select(F,p_value)
+
+broom.mixed::tidy(M) %>%
     tt()
+
+plot_model(M,type="pred",terms=c("Taxon","Extraction"))
+
+VarCorr(M)
+
+# Within-taxon between-species variance: 0%
+4*(2.092129e-09/(2.092129e-09+1.658436e-01))
+# Within-species between-sample variance: 4%
+4*(1.658436e-01/(2.092129e-09+1.658436e-01))
+
 ```
 
-## Alpha diversity
+> EHEX obtained lower nonpareil completeness values than REF and DREX.
+> Lowest nonpareil completeness values were ontained for mammals and higest for reptiles.
 
-Variance partitioning metrics are derived from [community_analysis.Rmd](community_analysis.Rmd).
-
-```{r alpha_diversity_data, warning=FALSE, comments="", message=FALSE}
-alpha_data <- list.files(path = "results", pattern = "^alpha_.*\\.tsv$", full.names = TRUE) %>%
-  map_df(~ read_tsv(.)) %>%
-  left_join(all_data,by= join_by(dataset==dataset))
-```
-
-```{r alpha_diversity_plot, warning=FALSE, comments="", message=FALSE, fig.height=6, fig.width=10, fig.fullwidth=TRUE}
-alpha_data %>% 
-    select(dataset,Library,Species,Taxon,Sample,Extraction,richness,neutral,phylogenetic) %>% 
-    pivot_longer(!c(dataset,Library,Species,Taxon,Sample,Extraction), names_to = "metric", values_to = "value") %>%
-    filter(metric %in% c("richness","neutral","phylogenetic")) %>%
-    mutate(metric=factor(metric,levels=c("richness","neutral","phylogenetic"))) %>%
-    mutate(Taxon=factor(Taxon,levels=c("Amphibian","Reptile","Mammal"))) %>%
-    mutate(Extraction=factor(Extraction,levels=c("ZYMO","DREX","EHEX"))) %>%
-    unique() %>%
-    ggplot(aes(x=Extraction,y=value, color=Species, group=Extraction)) + 
-        geom_boxplot(outlier.shape = NA, fill="#f4f4f4", color="#8c8c8c") + 
-        geom_jitter() + 
-        scale_color_manual(values=vertebrate_colors) +
-        facet_grid(metric ~ Taxon, scales = "free") +
-        theme_minimal() +
-        labs(y="Diversity",x="Extraction method")
-```
-
-### Richness
-
-```{r alpha_diversity_test_richness, warning=FALSE, comments="", message=FALSE}
-alpha_data %>%
-    select(dataset,Extraction,Sample,Species,richness,Taxon) %>%
-    unique() %>%
-    mutate(Extraction=factor(Extraction,levels=c("ZYMO","DREX","EHEX"))) %>%
-    lmerTest::lmer(richness ~ Extraction + (1 | Sample) + (1 | Species), data = ., REML = FALSE) %>%
-    broom.mixed::tidy() %>%
-    tt()
-```
-
-### Neutral
-
-```{r alpha_diversity_test_neutral, warning=FALSE, comments="", message=FALSE}
-alpha_data %>%
-    select(dataset,Extraction,Sample,Species,neutral,Taxon) %>%
-    unique() %>%
-    mutate(Extraction=factor(Extraction,levels=c("ZYMO","DREX","EHEX"))) %>%
-    lmerTest::lmer(neutral ~ Extraction + (1 | Sample) + (1 | Species), data = ., REML = FALSE) %>%
-    broom.mixed::tidy() %>%
-    tt()
-```
-
-### Phylogenetic
-
-```{r alpha_diversity_test_phylogenetic, warning=FALSE, comments="", message=FALSE}
-alpha_data %>%
-    select(dataset,Extraction,Sample,Species,phylogenetic,Taxon) %>%
-    unique() %>%
-    mutate(Extraction=factor(Extraction,levels=c("ZYMO","DREX","EHEX"))) %>%
-    lmerTest::lmer(phylogenetic ~ Extraction + (1 | Sample) + (1 | Species), data = ., REML = FALSE) %>%
-    broom.mixed::tidy() %>%
-    tt()
-```
-
-## Microbial complexity recovery
-
-```{r damr_summary, warning=FALSE, comments="", message=FALSE}
-all_data %>%
-    select(dataset,Extraction,microbial_fraction,MAG_mapping_percentage,Taxon) %>%
-    mutate(damr=pmin(1,MAG_mapping_percentage/(microbial_fraction*100))) %>%
-    mutate(damr=ifelse(is.na(damr),0,damr)) %>%
-    unique() %>%
-    group_by(Taxon,Extraction) %>%
-    summarise(value = sprintf("%.1f±%.1f", mean(damr), sd(damr))) %>%
-    pivot_wider(names_from = Extraction, values_from = value) %>%
-    tt(caption = "Mean and standard deviation of breadth of host genome coverage")
-```
-
-
-```{r damr_plot, warning=FALSE, comments="", message=FALSE, fig.height=4, fig.width=10, fig.fullwidth=TRUE}
-all_data %>%
-    select(dataset,Extraction,microbial_fraction,MAG_mapping_percentage,Taxon,Sample,Species) %>%
-    mutate(damr=pmin(1,MAG_mapping_percentage/(microbial_fraction*100))) %>%
-    mutate(damr=ifelse(is.na(damr),0,damr)) %>%
-    unique() %>%
-    ggplot(aes(x=Extraction,y=damr, color=Species, group=Extraction)) + 
-        geom_boxplot(outlier.shape = NA, fill="#f4f4f4", color="#8c8c8c") + 
-        geom_jitter() + 
-        scale_color_manual(values=vertebrate_colors) +
-        facet_grid(. ~ Taxon, scales = "free") +
-        theme_minimal() +
-        labs(y="Domain-adjusted mapping rate",x="Extraction method")
-```
-
-```{r damr_test, warning=FALSE, comments="", message=FALSE}
-all_data  %>%
-    select(dataset,Extraction,microbial_fraction,MAG_mapping_percentage,Taxon, Sample, Species) %>%
-    mutate(damr=pmin(1,MAG_mapping_percentage/(microbial_fraction*100))) %>%
-    mutate(damr=ifelse(is.na(damr),0,damr)) %>%
-    unique() %>%
-    mutate(Extraction=factor(Extraction,levels=c("ZYMO","DREX","EHEX"))) %>%
-    filter(Taxon != "Control") %>%
-    lmerTest::lmer(damr ~ Extraction + (1 | Sample) + (1 | Species), data = ., REML = FALSE) %>%
-    broom.mixed::tidy() %>%
-    tt()
-```
-
-## Variance partitioning
-
-Variance partitioning metrics are derived from [community_analysis.Rmd](community_analysis.Rmd).
-
-```{r variance_partitioning_data, warning=FALSE, comments="", message=FALSE}
-variance_data <- list.files(path = "results", pattern = "^var_.*\\.tsv$", full.names = TRUE) %>%
-  map_df(~ read_tsv(.))
-
-variance_data %>% summarise(mean=mean(r2),sd=sd(r2))
-```
-
-```{r variance_partitioning_plot, warning=FALSE, comments="", message=FALSE, fig.height=6, fig.width=6}
-variance_data %>%
-    left_join(all_data %>% select(Species,Taxon) %>% unique(),by=join_by(species==Species)) %>%
-    mutate(metric=factor(metric,levels=c("phylogenetic","neutral","richness"))) %>%
-    mutate(Taxon=factor(Taxon,levels=c("Amphibian","Reptile","Mammal"))) %>%
-    ggplot(aes(x=r2,y=metric)) +
-        geom_boxplot(outlier.shape = NA, fill="#f4f4f4", color="#8c8c8c") + 
-        geom_jitter(aes(color=species))+
-        scale_color_manual(values=vertebrate_colors) +
-        xlim(0,0.5)+
-        theme_minimal() +
-        labs(y="Diversity metric",x="Explained variance")
-```
-
-```{r variance_partitioning_summary, warning=FALSE, comments="", message=FALSE}
-variance_data %>%
-    group_by(metric) %>%
-    summarise(mean=mean(r2),sd=sd(r2)) %>%
-    tt()
-```
 
 ## Combined community analysis
 
@@ -236,7 +112,295 @@ genome_counts <- read_counts %>%
 readlength=150
 genome_counts_filt <- read_counts_filt %>%
   mutate(across(where(is.numeric), ~ . / (genome_metadata$length / readlength) ))
+
+
+
 ```
+
+### Alpha diversity
+
+```{r alpha_calotriton, warning=FALSE, comments="", message=FALSE}
+#Calculate Hill numbers
+richness <- genome_counts_filt %>%
+            column_to_rownames(var="genome") %>%
+            select(where(~!all(. == 0))) %>%
+            hilldiv(.,q=0) %>%
+            t() %>%
+            as.data.frame() %>%
+            rename(richness=1) %>%
+            rownames_to_column(var="dataset")
+
+neutral <- genome_counts_filt %>%
+            column_to_rownames(var="genome") %>%
+            select(where(~!all(. == 0))) %>%
+            hilldiv(.,q=1) %>%
+            t() %>%
+            as.data.frame() %>%
+            rename(neutral=1) %>%
+            rownames_to_column(var="dataset")
+
+phylogenetic <- genome_counts_filt %>%
+            column_to_rownames(var="genome") %>%
+            select(where(~!all(. == 0))) %>%
+            hilldiv(.,q=1,tree=genome_tree) %>%
+            t() %>%
+            as.data.frame() %>%
+            rename(phylogenetic=1) %>%
+            rownames_to_column(var="dataset")
+
+# Merge alpha diversities
+alpha_diversity <- richness %>%
+      full_join(neutral,by=join_by(dataset==dataset)) %>%
+      full_join(phylogenetic,by=join_by(dataset==dataset))
+
+# Write alpha diversities
+#alpha_diversity %>% write_tsv(paste0("results/alpha_",genus,".tsv"))
+
+# Print alpha diversity
+alpha_diversity %>%
+  left_join(sample_metadata %>%
+    select(dataset, Extraction, Sample), by = join_by(dataset == dataset)) %>%
+  group_by(Extraction) %>%
+  summarise(richness = mean(richness), neutral = mean(neutral), phylogenetic = mean(phylogenetic)) %>%
+  tt()
+```
+
+
+```{r alpha_diversity_data, warning=FALSE, comments="", message=FALSE}
+alpha_data <- alpha_diversity %>%
+  left_join(all_data,by= join_by(dataset==dataset))
+
+```
+
+```{r alpha_diversity_plot, warning=FALSE, comments="", message=FALSE, fig.height=6, fig.width=10, fig.fullwidth=TRUE}
+alpha_data %>%
+    dplyr::select(dataset,Library,Species,Taxon,Sample,Extraction, richness,neutral,phylogenetic) %>% 
+    pivot_longer(!c(dataset,Library,Species,Taxon,Sample,Extraction), names_to = "metric", values_to = "value") %>%
+    mutate(metric=factor(metric,levels=c("richness","neutral","phylogenetic"))) %>%
+    mutate(Taxon=factor(Taxon,levels=c("Amphibian","Reptile","Mammal"))) %>%
+    unique() %>%
+    ggplot(aes(x=Extraction,y=value, color=Species, group=Extraction)) + 
+        geom_boxplot(outlier.shape = NA, fill="#f4f4f4", color="#8c8c8c") + 
+        geom_jitter() + 
+        scale_color_manual(values=vertebrate_colors) +
+        facet_grid(metric ~ Taxon, scales = "free") +
+        theme_minimal() +
+        labs(y="Diversity",x="Extraction method")
+```
+
+
+### Richness
+
+```{r alpha_diversity_test_richness, warning=FALSE, comments="", message=FALSE}
+alpha_data %>%
+  dplyr::select(dataset, Extraction, Sample, Species, richness, Taxon, catalogue) %>%
+  unique() %>%
+  filter(Taxon != "Control") %>%
+  lmerTest::lmer(log(richness) ~ Taxon + Extraction + (1 | Species / Sample), data = ., REML = TRUE) %>%
+  plot()
+
+alpha_data %>%
+  dplyr::select(dataset, Extraction, Sample, Species, richness, Taxon, catalogue) %>%
+  unique() %>%
+  filter(Taxon != "Control") %>%
+  lmerTest::lmer(log(richness) ~ Taxon + Extraction + (1 | Species / Sample), data = ., REML = TRUE) %>%
+  anova()
+
+alpha_data %>%
+  dplyr::select(dataset, Extraction, Sample, Species, richness, Taxon, catalogue) %>%
+  unique() %>%
+  filter(Taxon != "Control") %>%
+  lmerTest::lmer(log(richness) ~ Taxon + Extraction + (1 | Species / Sample), data = ., REML = TRUE) %>%
+  r.squaredGLMM()
+
+## 2% of the variance explained by fixed effects
+## 91% of the variance explained by random effects
+
+alpha_data %>%
+  dplyr::select(dataset, Extraction, Sample, Species, richness, Taxon, catalogue) %>%
+  unique() %>%
+  filter(Taxon != "Control") %>%
+  lmerTest::lmer(log(richness) ~ Taxon + Extraction + (1 | Species / Sample), data = ., REML = TRUE) %>%
+  VarCorr() %>%
+  print(comp = "Variance")
+
+# Within-taxon between-species variance: 59%
+91 * (0.85583 / (0.85583 + 0.47587))
+# Within-species between-sample variance: 33%
+91 * (0.47587 / (0.47587 + 0.85583))
+```
+
+> REF got slightly lower richness values than DREX and EHEX.
+> Large variability between species within taxa.
+
+### Neutral
+
+```{r alpha_diversity_test_neutral, warning=FALSE, comments="", message=FALSE}
+alpha_data %>%
+  dplyr::select(dataset, Extraction, Sample, Species, neutral, Taxon, catalogue) %>%
+  unique() %>%
+  filter(Taxon != "Control") %>%
+  lmerTest::lmer(neutral ~ Taxon + Extraction + (1 | Species / Sample), data = ., REML = TRUE) %>%
+  plot()
+
+alpha_data %>%
+  dplyr::select(dataset, Extraction, Sample, Species, neutral, Taxon, catalogue) %>%
+  unique() %>%
+  filter(Taxon != "Control") %>%
+  lmerTest::lmer(neutral ~ Taxon + Extraction + (1 | Species / Sample), data = ., REML = TRUE) %>%
+  anova()
+
+alpha_data %>%
+  dplyr::select(dataset, Extraction, Sample, Species, neutral, Taxon, catalogue) %>%
+  unique() %>%
+  filter(Taxon != "Control") %>%
+  lmerTest::lmer(neutral ~ Taxon + Extraction + (1 | Species / Sample), data = ., REML = TRUE) %>%
+  r.squaredGLMM()
+
+## 2% of the variance explained by fixed effects
+## 91% of the variance explained by random effects
+
+alpha_data %>%
+  dplyr::select(dataset, Extraction, Sample, Species, neutral, Taxon, catalogue) %>%
+  unique() %>%
+  filter(Taxon != "Control") %>%
+  lmerTest::lmer(neutral ~ Taxon + Extraction + (1 | Species / Sample), data = ., REML = TRUE) %>%
+  VarCorr() %>%
+  print(comp = "Variance")
+
+# Within-taxon between-species variance: 69%
+89 * (286.830 / (286.830 + 81.267))
+# Within-species between-sample variance: 20%
+89 * (81.267 / (286.830 + 81.267))
+
+```
+
+> No significant differences in neutral diversity between extraction methods and taxonomic groups.
+> Neutral diversity very species specific.
+
+### Phylogenetic
+
+```{r alpha_diversity_test_phylogenetic, warning=FALSE, comments="", message=FALSE}
+alpha_data %>%
+  dplyr::select(dataset, Extraction, Sample, Species, phylogenetic, Taxon, catalogue) %>%
+  unique() %>%
+  filter(Taxon != "Control") %>%
+  lmerTest::lmer(phylogenetic ~ Taxon + Extraction + (1 | Species / Sample), data = ., REML = TRUE) %>%
+  plot()
+
+alpha_data %>%
+  dplyr::select(dataset, Extraction, Sample, Species, phylogenetic, Taxon, catalogue) %>%
+  unique() %>%
+  filter(Taxon != "Control") %>%
+  lmerTest::lmer(phylogenetic ~ Taxon + Extraction + (1 | Species / Sample), data = ., REML = TRUE) %>%
+  anova()
+
+alpha_data %>%
+  dplyr::select(dataset, Extraction, Sample, Species, phylogenetic, Taxon, catalogue) %>%
+  unique() %>%
+  filter(Taxon != "Control") %>%
+  lmerTest::lmer(phylogenetic ~ Taxon + Extraction + (1 | Species / Sample), data = ., REML = TRUE) %>%
+  r.squaredGLMM()
+
+## 6% of the variance explained by fixed effects
+## 90% of the variance explained by random effects
+
+alpha_data %>%
+  dplyr::select(dataset, Extraction, Sample, Species, phylogenetic, Taxon, catalogue) %>%
+  unique() %>%
+  filter(Taxon != "Control") %>%
+  lmerTest::lmer(phylogenetic ~ Taxon + Extraction + (1 | Species / Sample), data = ., REML = TRUE) %>%
+  VarCorr() %>%
+  print(comp = "Variance")
+
+# Within-taxon between-species variance: 43%
+90 * (1.37930 / (1.37930 + 1.51968))
+# Within-species between-sample variance: 47%
+90 * (1.51968 / (1.37930 + 1.51968))
+```
+
+> No significant differences in phylogenetic diversity between extraction methods and taxonomic groups.
+
+## Microbial complexity recovery
+
+```{r damr_summary, warning=FALSE, comments="", message=FALSE}
+all_data %>%
+    select(dataset,Extraction,microbial_fraction,MAG_mapping_percentage,Taxon,catalogue) %>%
+    mutate(damr=pmin(1,MAG_mapping_percentage/(microbial_fraction))) %>%
+    mutate(damr=ifelse(is.na(damr),0,damr)) %>%
+    unique() %>% # what do we filter for?
+    group_by(Taxon,Extraction) %>%
+    summarise(value = sprintf("%.3f±%.3f", mean(damr), sd(damr))) %>%
+    pivot_wider(names_from = Extraction, values_from = value) %>%
+    tt(caption = "Mean and standard deviation of breadth of host genome coverage")
+```
+
+
+```{r damr_plot, warning=FALSE, comments="", message=FALSE, fig.height=4, fig.width=10, fig.fullwidth=TRUE}
+all_data %>%
+    select(dataset,Extraction,microbial_fraction,MAG_mapping_percentage,Taxon,Sample,Species) %>%
+    mutate(damr=pmin(1,MAG_mapping_percentage/(microbial_fraction))) %>%
+    mutate(damr=ifelse(is.na(damr),0,damr)) %>%
+    unique() %>%
+    ggplot(aes(x=Extraction,y=damr, color=Species, group=Extraction)) + 
+        geom_boxplot(outlier.shape = NA, fill="#f4f4f4", color="#8c8c8c") + 
+        geom_jitter() + 
+        scale_color_manual(values=vertebrate_colors) +
+        facet_grid(. ~ Taxon, scales = "free") +
+        theme_minimal() +
+        labs(y="Domain-adjusted mapping rate",x="Extraction method")
+```
+
+```{r damr_test, warning=FALSE, comments="", message=FALSE}
+all_data  %>%
+    select(dataset,Extraction,microbial_fraction,MAG_mapping_percentage,Taxon, Sample, Species,catalogue) %>%
+    mutate(damr=pmin(1,MAG_mapping_percentage/(microbial_fraction))) %>%
+    mutate(damr=ifelse(is.na(damr),0,damr)) %>%
+    unique() %>%
+    filter(Taxon != "Control") %>%
+    MASS::glmmPQL(damr~ Taxon+Extraction,random=~1|Species/Sample,
+               family="quasibinomial",data=.) %>%
+    car::Anova(.,test.statistic="Wald")
+
+data<-all_data  %>%
+    select(dataset,Extraction,microbial_fraction,MAG_mapping_percentage,Taxon, Sample, Species,catalogue) %>%
+    mutate(damr=pmin(1,MAG_mapping_percentage/(microbial_fraction))) %>%
+    mutate(damr=ifelse(is.na(damr),0,damr)) %>%
+    unique() %>%
+    filter(Taxon != "Control") 
+
+
+M<-MASS::glmmPQL(damr~ Taxon+Extraction,random=~1|Species/Sample,
+               family="quasibinomial",data=data)
+
+Anova_table<-car::Anova(M,test.statistic="Wald",type="III")%>%
+    mutate(F=Chisq/Df) # Approximate F value
+n <- nrow(M$data)  # Total number of observations
+df_fixed <- length(fixef(M))  # Number of fixed effect parameters
+df_random <- length(ranef(M))  # Number of random effect parameters (or levels)
+approx_residual_df <- n - df_fixed - df_random # Approx. residual Df
+data.frame(Anova_table,
+           p_value=pf(Anova_table$F, Anova_table$Df, approx_residual_df, lower.tail = FALSE))%>%
+  select(F,p_value)
+
+broom.mixed::tidy(M) %>%
+    tt()
+
+plot_model(M,type="pred",terms=c("Taxon","Extraction"))
+
+## 27% of the variance explained by fixed effects
+## 27% of the variance explained by random effects
+
+VarCorr(M)
+
+# Within-taxon between-species variance: 0%
+27*(2.545883e-08/(2.545883e-08+1.911908e+00))
+# Within-species between-sample variance: 27%
+27*(1.911908e+00/(2.545883e-08+1.911908e+00))
+```
+
+> All three extraction methods yield similar DAMRs.
+
 
 ### Community barplot
 
@@ -261,9 +425,6 @@ genome_counts %>%
                                        "Mammal",
                                        "Bird",
                                        "Control"))) %>%
-    mutate(Extraction=factor(Extraction,levels=c("ZYMO",
-                                                 "DREX",
-                                                 "EHEX"))) %>%
     mutate(Species=factor(Species,levels=c("Calotriton asper",
                                            "Lissotriton helveticus",
                                            "Salamandra atra",
@@ -295,18 +456,117 @@ genome_counts %>%
                 legend.title=element_blank(),
                 panel.spacing = unit(0, "lines"))
 
-ggsave(paste0("figures/barplot_",genus,".pdf"))
+#ggsave(paste0("figures/barplot_",genus,".pdf"))
 ```
-```{r permanova_combined, warning=FALSE, comments="", message=FALSE, fig.height=4, fig.width=10, fig.fullwidth=TRUE}
-sample_dist <- genome_counts_filt %>%
-            column_to_rownames(var="genome") %>%
-            select(where(~!all(. == 0))) %>%
-            hillpair(.,q=1, metric="C", out="dist")
+
+```{r filter_dataset, warning=FALSE, comments="", message=FALSE, fig.height=4, fig.width=10, fig.fullwidth=TRUE}
+genome_counts_filt_variance <- genome_counts_filt %>%
+            column_to_rownames(var="genome") %>% 
+            select(all_of(sample_metadata %>%
+                            filter(!Taxon %in% c("Birds", "Control")) %>% # exclude birds
+                            pull(dataset))) %>% 
+            select(where(~!all(. == 0)))
+```
+
+
+```{r permanova_combined_richness, warning=FALSE, comments="", message=FALSE}
+# Perform betadisper analysis
+richness_betadisper_result <- genome_counts_filt_variance %>%
+  hillpair(.,q=0, metric="C") %>%
+  as.dist() %>% 
+  betadisper(., sample_metadata %>% 
+                      filter(dataset %in% colnames(genome_counts_filt_variance)) %>%
+                      arrange(match(dataset,colnames(genome_counts_filt_variance))) %>% pull(Extraction))
+# Check if there are significant differences in dispersion
+permutest(richness_betadisper_result,pairwise = TRUE)  # Tests homogeneity of dispersion and pairwise comparisons between groups using permutations.
+TukeyHSD(richness_betadisper_result) # test significance between each group
+
+
+richness <- genome_counts_filt_variance %>%
+            hillpair(.,q=0, metric="C") %>%
+            as.dist() %>% # nrow(richness) 
+            adonis2(formula = . ~ Extraction+Taxon+Species+Sample, 
+                    data = sample_metadata %>% 
+                      filter(dataset %in% colnames(genome_counts_filt_variance)) %>%
+                      arrange(match(dataset,colnames(genome_counts_filt_variance))), 
+                    permutations = 999, 
+                    by="terms") %>%
+            broom::tidy()
+richness
+```
+
+```{r permanova_combined_neutral, warning=FALSE, comments="", message=FALSE}
+# Perform betadisper analysis
+neutral_betadisper_result <- genome_counts_filt_variance %>%
+  hillpair(.,q=1, metric="C") %>%
+  as.dist() %>% 
+  betadisper(., sample_metadata %>% 
+                      filter(dataset %in% colnames(genome_counts_filt_variance)) %>%
+                      arrange(match(dataset,colnames(genome_counts_filt_variance))) %>% pull(Extraction))
+# Check if there are significant differences in dispersion
+permutest(neutral_betadisper_result,pairwise=TRUE)  # Tests homogeneity of dispersion and pairwise comparisons between groups using permutations.
+
+neutral <- genome_counts_filt_variance %>%
+            hillpair(.,q=1, metric="C") %>%
+            as.dist() %>%
+            adonis2(formula = . ~ Extraction+Taxon+Species+Sample, 
+                    data = sample_metadata %>% 
+                      filter(dataset %in% colnames(genome_counts_filt_variance)) %>%
+                      arrange(match(dataset,colnames(genome_counts_filt_variance))), 
+                    permutations = 999, 
+                    by="terms") %>%
+            broom::tidy()
+neutral
+```
+
+
+```{r permanova_combined_phylogenetic, warning=FALSE, comments="", message=FALSE}
+# Perform betadisper analysis
+phylogenetic_betadisper_result <- genome_counts_filt_variance %>%
+  hillpair(.,q=1, metric="C") %>%
+  as.dist() %>% 
+  betadisper(., sample_metadata %>% 
+                      filter(dataset %in% colnames(genome_counts_filt_variance)) %>%
+                      arrange(match(dataset,colnames(genome_counts_filt_variance))) %>% pull(Extraction))
+# Check if there are significant differences in dispersion
+permutest(phylogenetic_betadisper_result,pairwise = TRUE)  # Tests homogeneity of dispersion and pairwise comparisons between groups using permutations.
+
+phylogenetic <- genome_counts_filt_variance %>%
+            hillpair(.,q=1, tree=genome_tree, metric="C") %>%
+            as.dist() %>%
+            adonis2(formula = . ~ Extraction+Taxon+Species+Sample, 
+                    data = sample_metadata %>% 
+                      filter(dataset %in% colnames(genome_counts_filt_variance)) %>%
+                      arrange(match(dataset,colnames(genome_counts_filt_variance))), 
+                    permutations = 999, 
+                    by="terms") %>%
+            broom::tidy()
+phylogenetic
+
+```
+
+```{r variance_partitioning_barplot, warning=FALSE, comments="", message=FALSE, fig.height=6, fig.width=4}
+data.frame(
+  Term = factor(rep(c("Extraction", "Taxon", "Species","Sample","Residual"), times = 3),levels = c("Extraction", "Taxon", "Species","Sample","Residual")),
+  Metric = factor(rep(c("Richness", "Neutral", "Phylogenetic"), each = 5),levels = c("Richness", "Neutral", "Phylogenetic")),
+  Value = c(richness$R2[-6],neutral$R2[-6],phylogenetic$R2[-6])
+)%>%
+  ggplot(., aes(x = Metric, y = Value, fill = Term)) +
+  geom_bar(stat = "identity", position = "stack") +
+  #scale_fill_brewer(palette = "Set1") +  # Choose a color palette
+  scale_fill_manual(values = c("#47bfb6", "#4a7015", "#5e1717", "#9e6b24", "#4a4a4a")) +
+  labs(
+    x = "Beta diversity metric",
+    y = "R-square",
+    fill = "Term"
+  ) +
+  theme_minimal()
+
 ```
 
 ```{r nmds_combined, warning=FALSE, comments="", message=FALSE, fig.height=4, fig.width=10, fig.fullwidth=TRUE}
-genome_counts_NMDS <- genome_counts_filt %>%
-            column_to_rownames(var="genome") %>%
+genome_counts_NMDS <- genome_counts_filt_variance %>%
+            #column_to_rownames(var="genome") %>%
             select(where(~!all(. == 0))) %>%
             hillpair(.,q=1, metric="C", out="dist") %>%
             metaMDS(.,trymax = 999, k=2, trace=0) %>%

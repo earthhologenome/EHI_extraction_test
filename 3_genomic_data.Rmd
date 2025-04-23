@@ -28,15 +28,27 @@ all_data %>%
 ```
 
 ```{r host_duplicates_test, warning=FALSE, comments="", message=FALSE}
-all_data %>%
-    select(dataset,Sample,Species,Extraction,duplicates,Taxon) %>%
-    filter(Taxon != "Control") %>%
-    lmerTest::lmer(duplicates ~ Extraction * Taxon + (1 | Sample) + (1 | Species), data = ., REML = FALSE) %>%
-    plot()
-    #anova()
-    #r.squaredGLMM() 
-```
+data<-all_data  %>%
+    select(dataset,Sample,Species,Extraction,duplicates,Taxon,catalogue) %>%
+    filter(Taxon != "Control") 
+M<-MASS::glmmPQL(duplicates~ Taxon+Extraction,random=~1|Species/Sample,
+               family="quasibinomial",data=data)
 
+Anova_table<-car::Anova(M,test.statistic="Wald",type="III")%>%
+    mutate(F=Chisq/Df) # Approximate F value
+n <- nrow(M$data)  # Total number of observations
+df_fixed <- length(fixef(M))  # Number of fixed effect parameters
+df_random <- length(ranef(M))  # Number of random effect parameters (or levels)
+approx_residual_df <- n - df_fixed - df_random # Approx. residual Df
+data.frame(Anova_table,
+           p_value=pf(Anova_table$F, Anova_table$Df, approx_residual_df, lower.tail = FALSE))%>%
+  select(F,p_value)
+
+broom.mixed::tidy(M) %>%
+    tt()
+
+plot_model(M,type="pred",terms=c("Taxon","Extraction"))
+```
 
 ## Depth of coverage
 
@@ -65,12 +77,32 @@ all_data %>%
 
 ```{r host_depth_test, warning=FALSE, comments="", message=FALSE}
 all_data %>%
-    select(dataset,Sample,Species,Extraction,coverage_depth,Taxon) %>%
+    select(dataset,Sample,Species,Extraction,coverage_depth,Taxon,catalogue) %>%
     unique() %>%
     filter(Taxon != "Control") %>%
-    lmerTest::lmer(coverage_depth ~ Extraction + (1 | Sample) + (1 | Species), data = ., REML = FALSE) %>%
-    broom.mixed::tidy() %>%
-    tt()
+    lmerTest::lmer(rank(coverage_depth)~ Taxon + Extraction + (1 | Species/Sample), data = ., REML = TRUE) %>%
+    plot()
+
+all_data %>%
+    select(dataset,Sample,Species,Extraction,coverage_depth,Taxon,catalogue) %>%
+    unique() %>%
+    filter(Taxon != "Control") %>%
+    lmerTest::lmer(rank(coverage_depth)~ Taxon + Extraction + (1 | Species/Sample), data = ., REML = TRUE) %>%
+    anova()
+
+all_data %>%
+    select(dataset,Sample,Species,Extraction,coverage_depth,Taxon,catalogue) %>%
+    unique() %>%
+    filter(Taxon != "Control") %>%
+    lmerTest::lmer(rank(coverage_depth)~ Taxon + Extraction + (1 | Species/Sample), data = ., REML = TRUE) %>%
+    plot_model(.,type="pred",terms=c("Taxon","Extraction"))
+
+all_data %>%
+    select(dataset,Sample,Species,Extraction,coverage_depth,Taxon,catalogue) %>%
+    unique() %>%
+    filter(Taxon != "Control") %>%
+    lmerTest::lmer(rank(coverage_depth)~ Taxon + Extraction + (1 | Species/Sample), data = ., REML = TRUE) %>%
+    r.squaredGLMM()
 ```
 
 ## Breadth of coverage
@@ -99,13 +131,29 @@ all_data %>%
 ```
 
 ```{r host_breadth_test, warning=FALSE, comments="", message=FALSE}
-all_data %>%
-    select(dataset,Extraction,Sample,Species,coverage_breadth,Taxon) %>%
-    unique() %>%
-    filter(Taxon != "Control") %>%
-    lmerTest::lmer(coverage_breadth ~ Extraction + (1 | Sample) + (1 | Species), data = ., REML = FALSE) %>%
-    broom.mixed::tidy() %>%
+data<-all_data  %>%
+    select(dataset,Extraction,Sample,Species,coverage_breadth,Taxon,catalogue) %>%
+    ## Since amphibians contain only 0s, the small constant value avoid extremely large confidence intervals for that group
+    mutate(coverage_breadth=(coverage_breadth/100)+0.001)%>%
+    filter(Taxon != "Control") # %>%filter(catalogue != "All")
+
+M<-MASS::glmmPQL(coverage_breadth~ Taxon+Extraction,random=~1|Species/Sample,
+               family="quasibinomial",data=data)
+
+Anova_table<-car::Anova(M,test.statistic="Wald",type="III")%>%
+    mutate(F=Chisq/Df) # Approximate F value
+n <- nrow(M$data)  # Total number of observations
+df_fixed <- length(fixef(M))  # Number of fixed effect parameters
+df_random <- length(ranef(M))  # Number of random effect parameters (or levels)
+approx_residual_df <- n - df_fixed - df_random # Approx. residual Df
+data.frame(Anova_table,
+           p_value=pf(Anova_table$F, Anova_table$Df, approx_residual_df, lower.tail = FALSE))%>%
+  select(F,p_value)
+
+broom.mixed::tidy(M) %>%
     tt()
+
+plot_model(M,type="pred",terms=c("Taxon","Extraction"))
 ```
 
 ## Breadth vs. coverage

@@ -4,7 +4,7 @@
 
 ```{r load_counts, warning=FALSE, comments="", message=FALSE, echo=FALSE, eval=FALSE}
 sample_metadata <- read_tsv(paste0("data/metadata.tsv")) %>%
-    mutate(Extraction=factor(Extraction, levels=c("ZYMO","DREX","EHEX"))) %>%
+    mutate(Extraction=factor(Extraction, levels=c("REF","DREX","EHEX"))) %>%
     rename(dataset=Dataset)
 ```
 
@@ -43,9 +43,7 @@ preprocessing_data <- airtable("tblJfLRU2FIVz37Y1", "appQpr6MxnaiVHsHy") %>% #ge
 
 ```{r assembly_data, warning=FALSE, comments="", message=FALSE, echo=FALSE, eval=FALSE}
 assembly_data <- airtable("tblG6ZIvkYN844I97", "appQpr6MxnaiVHsHy") %>% #get base ID from Airtable browser URL
-  read_airtable(., fields = c("EHI_number_api","AB_batch_api","assembly_length","N50","L50","num_contigs","num_bins","metagenomic_bases"), id_to_col = TRUE) %>% #get 3 columns from MAGs table
-  filter(AB_batch_api %in% c("ABB0409","ABB0410","ABB0411","ABB0412","ABB0413","ABB0414","ABB0415","ABB0416","ABB0417","ABB0418","ABB0419","ABB0420")) %>% 
-  select(-AB_batch_api) %>% 
+  read_airtable(., fields = c("EHI_number_api","assembly_length","N50","L50","num_contigs","num_bins","metagenomic_bases"), id_to_col = TRUE) %>% #get 3 columns from MAGs table
   rename(id=1,assembly_mapped_bases=metagenomic_bases,dataset=EHI_number_api) %>%
   filter(dataset %in% sample_metadata$dataset) %>%
   select(dataset,assembly_length,N50,L50,num_contigs,num_bins,assembly_mapped_bases)
@@ -53,18 +51,10 @@ assembly_data <- airtable("tblG6ZIvkYN844I97", "appQpr6MxnaiVHsHy") %>% #get bas
 
 ```{r mapping_data, warning=FALSE, comments="", message=FALSE, echo=FALSE, eval=FALSE}
 mapping_data <- airtable("tblWDyQmM9rQ9wq57", "appWbHBNLE6iAsMRV") %>% #get base ID from Airtable browser URL
-  read_airtable(., fields = c("DM_batch_static","EHI_sample_static","MAG_mapping_percentage"), id_to_col = TRUE) %>% #get 3 columns from MAGs table
-  filter(DM_batch_static %in% c("DMB0121","DMB0122","DMB0123","DMB0124","DMB0125","DMB0126","DMB0127","DMB0128","DMB0129","DMB0130","DMB0131","DMB0132","DMB0133","DMB0134")) %>% 
-  mutate(catalogue = case_when(
-    DM_batch_static == "DMB0134" ~ "All",
-    DM_batch_static %in% c("DMB0121","DMB0122","DMB0123","DMB0124","DMB0125",
-                "DMB0126","DMB0127","DMB0128","DMB0129","DMB0130",
-                "DMB0131","DMB0132") ~ "Species",
-    TRUE ~ NA_character_
-  )) %>% 
+  read_airtable(., fields = c("EHI_sample_static","MAG_mapping_percentage"), id_to_col = TRUE) %>% #get 3 columns from MAGs table
   rename(id=1,dataset=EHI_sample_static) %>%
   filter(dataset %in% sample_metadata$dataset) %>%
-  select(dataset,MAG_mapping_percentage,catalogue)
+  select(dataset,MAG_mapping_percentage)
 ```
 
 ```{r genomics_data, warning=FALSE, comments="", message=FALSE, echo=FALSE, eval=FALSE}
@@ -87,15 +77,27 @@ write_tsv(all_data, file="data/all_data.tsv")
 Load data previously compiled from the database:
 
 ```{r load_laboroty_data, warning=FALSE, comments="", message=FALSE}
-all_data <- read_tsv("data/all_data.tsv") %>%
-    mutate(Taxon=factor(Taxon,levels=c("Amphibian",
-                                       "Reptile",
-                                       "Mammal",
-                                       "Bird",
-                                       "Control"))) %>%
-    mutate(Extraction=factor(Extraction,levels=c("ZYMO",
-                                                 "DREX",
-                                                 "EHEX"))) %>%
+all_data <- read_tsv("data/all_data.tsv") %>% 
+  filter(catalogue != "Species") %>%
+  mutate(
+    Taxon = factor(Taxon, levels = c(
+      "Amphibian",
+      "Reptile",
+      "Mammal",
+      "Bird",
+      "Control"
+    )),
+    Extraction = case_when(
+      Extraction == "REF" ~ "REF",
+      Extraction == "DREX" ~ "DREX1",
+      Extraction == "EHEX" ~ "DREX2",
+      TRUE ~ Extraction # Keep other values unchanged
+    ), Extraction = factor(Extraction, levels = c(
+      "REF",
+      "DREX1",
+      "DREX2"
+    ))
+  ) %>%
     mutate(Species=factor(Species,levels=c("Calotriton asper",
                                            "Lissotriton helveticus",
                                            "Salamandra atra",
@@ -110,6 +112,7 @@ all_data <- read_tsv("data/all_data.tsv") %>%
                                            "Zonotrichia capensis",
                                            "Extraction control",
                                            "Library control")))
+table(all_data$Sample)
 ```
 
 ## DNA yield
@@ -141,48 +144,292 @@ all_data %>%
 ```{r yield_test, warning=FALSE, comments="", message=FALSE}
 all_data  %>%
     filter(Taxon != "Control") %>%
-    lmerTest::lmer(extract ~ Extraction + (1 | Sample) + (1 | Species), data = ., REML = FALSE) %>%
+    mutate("log_extract"=log(extract))%>%
+    lmerTest::lmer(log(extract) ~ Taxon + Extraction + (1 | Species/Sample), data = ., REML = TRUE) %>%
+    plot()
+
+all_data  %>%
+    filter(Taxon != "Control") %>%
+    mutate("log_extract"=log(extract))%>%
+    lmerTest::lmer(log(extract) ~ Taxon + Extraction + (1 | Species/Sample), data = ., REML = TRUE) %>%
+    anova()
+
+all_data  %>%
+    filter(Taxon != "Control") %>%
+    mutate("log_extract"=log(extract))%>%
+    lmerTest::lmer(log(extract) ~ Taxon + Extraction + (1 | Species/Sample), data = ., REML = TRUE) %>%
     broom.mixed::tidy() %>%
     tt()
+
+all_data  %>%
+    filter(Taxon != "Control") %>%
+    mutate("log_extract"=log(extract))%>%
+    lmerTest::lmer(log(extract) ~ Taxon + Extraction + (1 | Species/Sample), data = ., REML = TRUE) %>%
+    plot_model(.,type="pred",terms=c("Taxon","Extraction"),show.data = TRUE)
+
+all_data  %>%
+    filter(Taxon != "Control") %>%
+    mutate("log_extract"=log(extract))%>%
+    lmerTest::lmer(log(extract) ~ Taxon + Extraction + (1 | Species/Sample), data = ., REML = TRUE) %>%
+    ggpredict(.,terms="Extraction")
+
+all_data  %>%
+    filter(Taxon != "Control") %>%
+    mutate("log_extract"=log(extract))%>%
+    lmerTest::lmer(log(extract) ~ Taxon + Extraction + (1 | Species/Sample), data = ., REML = TRUE) %>%
+    ggpredict(.,terms="Taxon")
+
+all_data  %>%
+    filter(Taxon != "Control") %>%
+    mutate("log_extract"=log(extract))%>%
+    lmerTest::lmer(log(extract) ~ Taxon + Extraction + (1 | Species/Sample), data = ., REML = TRUE) %>%
+    plot_model(.,type="pred",terms=c("Species"),pred.type = "re",ci.lvl = NA)+
+        theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+all_data  %>%
+    filter(Taxon != "Control") %>%
+    mutate("log_extract"=log(extract))%>%
+    lmerTest::lmer(log(extract) ~ Taxon + Extraction + (1 | Species/Sample), data = ., REML = TRUE) %>%
+    r.squaredGLMM()
 ```
 
-> DNA yields vary across host taxa.
-> - Amphibians and mammals yield the highest total amounts of DNA.
-> - Birds yield the lowest amounts of DNA.
-> - Controls yield barely quantifiable DNA.
-> EHEX yields highest amounts of total DNA.
-> - DNA recovery raks of extraction methods are maintained across taxa.
+## Sample purity 
 
-## Library performance
+In common laboratory practice, DNA and RNA samples with A260/A280 and A260/A230 > 1.8 are considered to be “clean”, and suitable for use in most downstream applications
 
-Number of PCR cycles required for reaching the plateau phase of the indexing PCR. A higher number indicates a lower amount of amplifiable library template. When weighed by the input DNA, the required number of PCR cycles serves as an estimator of library performance.
+## Sample purity A260/A280 Ratios
 
-```{r pcr_summary, warning=FALSE, comments="", message=FALSE}
+260 nm and 280 nm are the absorbance wavelengths used to assess the type of nucleic acid present (DNA or RNA) and they provide a rough indication of purity. A reduction of this ratio typically indicates protein contamination while RNA contamination can be detected by an increase of this ratio.
+The generally accepted 260/280 values are ~1.8 for pure DNA and ~2.0 for RNA.
+Lower values may indicate the presence of protein, phenol or other contaminants that have an absorbance close to 280 nm.
+
+```{r purity280_summary, warning=FALSE, comments="", message=FALSE}
 all_data %>%
-    group_by(Taxon,Extraction) %>%
-    summarise(value = sprintf("%.1f±%.1f", mean(pcr), sd(pcr))) %>%
-    pivot_wider(names_from = Extraction, values_from = value) %>%
-    tt(caption = "Mean and standard deviation of optimal number of PCR cycles")
+  filter(!is.na(x260_280)) %>% 
+  select(Extraction, x260_280, Taxon) %>%
+  group_by(Extraction) %>%
+  #group_by(Taxon, Extraction) %>%
+  summarise(value = sprintf("%.2f±%.2f", mean(x260_280), sd(x260_280))) %>%
+  pivot_wider(names_from = Extraction, values_from = value) %>%
+  tt(caption = "Mean and standard deviation of 260/280 values")
 ```
 
-```{r pcr_plot, warning=FALSE, comments="", message=FALSE, fig.height=4, fig.width=10, fig.fullwidth=TRUE}
+
+```{r purity280d_summary, warning=FALSE, comments="", message=FALSE}
 all_data %>%
-    select(Library,Species,Extraction,pcr,Taxon) %>%
-    unique() %>%
-    ggplot(aes(x=Extraction,y=pcr, color=Species, group=Extraction))+ 
-        scale_y_reverse() +
+  filter(!is.na(x260_280)) %>% 
+  mutate(d260_280=abs(1.8-x260_280)) %>% 
+  select(Extraction, d260_280, Taxon) %>%
+  group_by(Taxon, Extraction) %>%
+  summarise(value = sprintf("%.2f±%.2f", mean(d260_280), sd(d260_280))) %>%
+  pivot_wider(names_from = Extraction, values_from = value) %>%
+  tt(caption = "Mean and standard deviation of the deviation of 260/280 values from 1.8")
+```
+
+
+Higher deviation from 1.8 indicates lower purity of the DNA extracts
+
+```{r purity280d_plot, warning=FALSE, comments="", message=FALSE, fig.height=4, fig.width=10, fig.fullwidth=TRUE}
+all_data %>%
+  select(Extraction, x260_280, Taxon, Species) %>%
+    ggplot(aes(x=Extraction, y=x260_280, color=Species, group=Extraction))+ 
         geom_boxplot(outlier.shape = NA, fill="#f4f4f4", color="#8c8c8c") + 
         geom_jitter() + 
         scale_color_manual(values=vertebrate_colors) +
         facet_grid(. ~ Taxon, scales = "free") +
         theme_minimal() +
-        labs(y="Optimal number of PCR cycles",x="Extraction method")
+        labs(y="260/280 values",x="Extraction method")
 ```
 
-```{r pcr_test, warning=FALSE, comments="", message=FALSE}
+```{r purity280d_test, warning=FALSE, comments="", message=FALSE}
 all_data  %>%
-    filter(Taxon != "Control") %>%
-    lmerTest::lmer(pcr ~ Extraction + (1 | Sample) + (1 | Species), data = ., REML = FALSE) %>%
+  filter(!is.na(x260_280),Taxon != "Control") %>% 
+  #filter(!is.na(x260_280),Taxon != "Control", !Sample %in% c("ABD27", "AJP51", "AFO83","AAZ65","AGI41", "AIV55")) %>% 
+  mutate(d260_280=abs(1.8-x260_280)) %>% 
+  lmerTest::lmer(rank(d260_280) ~ Taxon + Extraction + (1 | Species/Sample), data = ., REML = TRUE) %>%
+  plot()
+
+all_data  %>%
+  filter(!is.na(x260_280),Taxon != "Control") %>% 
+  #filter(!is.na(x260_280),Taxon != "Control", !Sample %in% c("ABD27", "AJP51", "AFO83","AAZ65","AGI41", "AIV55")) %>% 
+  mutate(d260_280=abs(1.8-x260_280)) %>% 
+  lmerTest::lmer(rank(d260_280) ~ Taxon + Extraction + (1 | Species/Sample), data = ., REML = TRUE) %>%
+    anova()
+
+all_data  %>%
+  filter(!is.na(x260_280),Taxon != "Control") %>% 
+  #filter(!is.na(x260_280),Taxon != "Control", !Sample %in% c("ABD27", "AJP51", "AFO83","AAZ65","AGI41", "AIV55")) %>% 
+  mutate(d260_280=abs(1.8-x260_280)) %>% 
+  lmerTest::lmer(rank(d260_280) ~ Taxon + Extraction + (1 | Species/Sample), data = ., REML = TRUE) %>%
     broom.mixed::tidy() %>%
     tt()
+
+all_data  %>%
+  filter(!is.na(x260_280),Taxon != "Control") %>% 
+  #filter(!is.na(x260_280),Taxon != "Control", !Sample %in% c("ABD27", "AJP51", "AFO83","AAZ65","AGI41", "AIV55")) %>% 
+  mutate(d260_280=abs(1.8-x260_280)) %>% 
+  lmerTest::lmer(rank(d260_280) ~ Taxon + Extraction + (1 | Species/Sample), data = ., REML = TRUE) %>%
+    plot_model(.,type="pred",terms=c("Taxon","Extraction"))
+
+all_data  %>%
+filter(!is.na(x260_280),Taxon != "Control") %>% 
+  #filter(!is.na(x260_280),Taxon != "Control", !Sample %in% c("ABD27", "AJP51", "AFO83","AAZ65","AGI41", "AIV55")) %>% 
+    mutate(d260_280=abs(1.8-x260_280)) %>% 
+  lmerTest::lmer(rank(d260_280) ~ Taxon + Extraction + (1 | Species/Sample), data = ., REML = TRUE) %>%
+    ggpredict(.,terms="Extraction")
+
+all_data  %>%
+  filter(!is.na(x260_280),Taxon != "Control") %>% 
+  mutate(d260_280=abs(1.8-x260_280)) %>% 
+  lmerTest::lmer(rank(d260_280) ~ Taxon + Extraction + (1 | Species/Sample), data = ., REML = TRUE) %>%
+    r.squaredGLMM()
+```
+
+## Sample purity A260/A230 Ratios
+
+The A260/A230 is a sensitive indicator of contaminants that absorb at 230 nm. These contaminants are significantly more numerous than those absorbing at 280 nm, and include chaotropic salts such as guanidine thiocyanate (GTC) and guanidine hydrochloride (GuHCl), EDTA, non-ionic detergents like Triton™ X-100 and Tween® 20, proteins, and phenol. Substances like polysaccharides or free floating solid particles like silica fibers absorb at this wavelength, but will have a weaker effect.
+
+Low 260/230 values indicates the presence of residual extraction reagent (ex. Carbohydrates, Chaotropic salts, phenol).
+
+```{r purity230_summary, warning=FALSE, comments="", message=FALSE}
+all_data %>%
+  filter(!is.na(x260_230)) %>% 
+  select(Extraction, x260_230, Taxon) %>%
+  group_by(Extraction) %>%
+  #group_by(Taxon, Extraction) %>%
+  summarise(value = sprintf("%.2f±%.2f", mean(x260_230), sd(x260_230))) %>%
+  pivot_wider(names_from = Extraction, values_from = value) %>%
+  tt(caption = "Mean and standard deviation of 260/230 values")
+```
+
+
+```{r purity230d_summary, warning=FALSE, comments="", message=FALSE}
+all_data %>%
+  filter(!is.na(x260_230)) %>% 
+  mutate(d260_230=abs(1.8-x260_230)) %>% 
+  select(Extraction, d260_230, Taxon) %>%
+  group_by(Taxon, Extraction) %>%
+  summarise(value = sprintf("%.2f±%.2f", mean(d260_230), sd(d260_230))) %>%
+  pivot_wider(names_from = Extraction, values_from = value) %>%
+  tt(caption = "Mean and standard deviation of the deviation of 260/230 values from 1.8")
+```
+
+Higher deviation from 1.8 indicates lower purity of the DNA extracts
+
+```{r purity230d_plot, warning=FALSE, comments="", message=FALSE, fig.height=4, fig.width=10, fig.fullwidth=TRUE}
+all_data %>%
+  filter(!is.na(x260_230)) %>% 
+  select(Extraction, x260_230, Taxon, Species) %>%
+    ggplot(aes(x=Extraction, y=x260_230, color=Species, group=Extraction))+ 
+        geom_boxplot(outlier.shape = NA, fill="#f4f4f4", color="#8c8c8c") + 
+        geom_jitter() + 
+        scale_color_manual(values=vertebrate_colors) +
+        facet_grid(. ~ Taxon, scales = "free") +
+        theme_minimal() +
+        labs(y="Deviation of 260/230 values from 1.8",x="Extraction method")
+```
+
+```{r purity230d_test, warning=FALSE, comments="", message=FALSE}
+all_data  %>%
+  #  filter(!is.na(x260_230),Taxon != "Control") %>% 
+  filter(!is.na(x260_230),Taxon != "Control", !Sample %in% c("ABD27", "AJP51", "AFO83","AAZ65","AGI41", "AIV55")) %>% 
+  mutate(d260_230=abs(1.8-x260_230)) %>% 
+  lmerTest::lmer(rank(d260_230) ~ Taxon + Extraction + (1 | Species/Sample), data = ., REML = TRUE) %>%
+  plot()
+  
+all_data  %>%
+  #  filter(!is.na(x260_230),Taxon != "Control") %>% 
+  filter(!is.na(x260_230),Taxon != "Control",!dna_extract %in% c("AGI41E1")) %>% 
+  #filter(!is.na(x260_230),Taxon != "Control", !Sample %in% c("ABD27", "AJP51", "AFO83","AAZ65","AGI41", "AIV55")) %>% 
+  mutate(d260_230=abs(1.8-x260_230)) %>% 
+  lmerTest::lmer(rank(d260_230) ~ Taxon + Extraction + (1 | Species/Sample), data = ., REML = TRUE) %>%
+  anova()
+
+all_data  %>%
+  #  filter(!is.na(x260_230),Taxon != "Control") %>% 
+  filter(!is.na(x260_230),Taxon != "Control", !Sample %in% c("ABD27", "AJP51", "AFO83","AAZ65","AGI41", "AIV55")) %>% 
+  mutate(d260_230=abs(1.8-x260_230)) %>% 
+  lmerTest::lmer(rank(d260_230) ~ Taxon + Extraction + (1 | Species/Sample), data = ., REML = TRUE) %>%
+  broom.mixed::tidy() %>% 
+  tt()
+
+all_data  %>%
+  #  filter(!is.na(x260_230),Taxon != "Control") %>% 
+  filter(!is.na(x260_230),Taxon != "Control", !Sample %in% c("ABD27", "AJP51", "AFO83","AAZ65","AGI41", "AIV55")) %>% 
+  mutate(d260_230=abs(1.8-x260_230)) %>% 
+  lmerTest::lmer(rank(d260_230) ~ Taxon + Extraction + (1 | Species/Sample), data = ., REML = TRUE) %>%
+  plot_model(.,type="pred",terms=c("Taxon","Extraction"),show.data = TRUE)
+
+all_data  %>%
+  filter(!is.na(x260_230),Taxon != "Control") %>% 
+  mutate(d260_230=abs(1.8-x260_230)) %>% 
+  lmerTest::lmer(rank(d260_230) ~ Taxon + Extraction + (1 | Species/Sample), data = ., REML = TRUE) %>%
+  r.squaredGLMM()
+```
+
+## Amplification performance
+
+```{r ct_summary, warning=FALSE, comments="", message=FALSE}
+all_data %>%
+  filter(!is.na(ct_d_rn)) %>% 
+  select(Extraction, ct_d_rn, Taxon) %>%
+  group_by(Taxon, Extraction) %>%
+  summarise(value = sprintf("%.2f±%.2f", mean(ct_d_rn), sd(ct_d_rn))) %>%
+  pivot_wider(names_from = Extraction, values_from = value) %>%
+  tt(caption = "Mean and standard deviation of Cts (cycle threshold) values")
+```
+
+```{r ct_plot, warning=FALSE, comments="", message=FALSE, fig.height=4, fig.width=10, fig.fullwidth=TRUE}
+all_data %>%
+  #filter(!Taxon=="Control") %>% 
+    select(Library,Species,Extraction, ct_d_rn,Taxon) %>%
+    unique() %>%
+    ggplot(aes(x=Extraction, y=ct_d_rn, color=Species, group=Extraction))+ 
+        geom_boxplot(outlier.shape = NA, fill="#f4f4f4", color="#8c8c8c") + 
+        geom_jitter() + 
+        scale_color_manual(values=vertebrate_colors) +
+        facet_grid(. ~ Taxon, scales = "free") +
+        theme_minimal() +
+        labs(y="Cts (cycle threshold) values",x="Extraction method")
+```
+
+```{r ct_plot1, warning=FALSE, comments="", message=FALSE, fig.height=4, fig.width=10, fig.fullwidth=TRUE}
+all_data %>%
+    select(dna_extract, ct_d_rn, ng_ul_lib, Species, Extraction) %>% 
+    ggplot(aes(x=log10(ng_ul_lib), y=ct_d_rn)) + 
+      geom_point(aes(color=Extraction)) + geom_smooth(method = "lm", se=FALSE) 
+```
+
+```{r ct_test, warning=FALSE, comments="", message=FALSE}
+all_data  %>%
+  filter(Taxon != "Control") %>%
+  lmerTest::lmer(ct_d_rn ~ Taxon + Extraction + log10(ng_ul_lib) + (1 | Species/Sample), data = ., REML = TRUE) %>%
+  plot()
+
+all_data  %>%
+  filter(Taxon != "Control") %>%
+  lmerTest::lmer(ct_d_rn ~ Taxon + Extraction + log10(ng_ul_lib) + (1 | Species/Sample), data = ., REML = TRUE) %>%
+  anova()
+
+all_data  %>%
+  filter(Taxon != "Control") %>%
+  lmerTest::lmer(ct_d_rn ~ Taxon + Extraction + log10(ng_ul_lib) + (1 | Species/Sample), data = ., REML = TRUE) %>%
+  broom.mixed::tidy() %>% 
+  tt()
+  
+all_data  %>%
+  filter(Taxon != "Control") %>%
+  lmerTest::lmer(ct_d_rn ~ Taxon + Extraction + log10(ng_ul_lib) + (1 | Species/Sample), data = ., REML = TRUE) %>%
+  plot_model(.,type="pred",terms=c("Taxon","Extraction"),show.data = TRUE)
+
+all_data  %>%
+    filter(Taxon != "Control") %>%
+    mutate("log_extract"=log(extract))%>%
+    lmerTest::lmer(ct_d_rn ~ Taxon + Extraction + log10(ng_ul_lib) + (1 | Species/Sample), data = ., REML = TRUE) %>%
+    ggeffects::ggpredict(.,terms="Extraction")
+
+all_data  %>%
+  filter(Taxon != "Control") %>%
+  lmerTest::lmer(ct_d_rn ~ Taxon + Extraction + log10(ng_ul_lib) + (1 | Species/Sample), data = ., REML = TRUE) %>%
+  r.squaredGLMM()
 ```

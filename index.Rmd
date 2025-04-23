@@ -82,6 +82,7 @@ library(ANCOMBC)
 library(lme4)
 library(MuMIn)
 library(sjPlot)
+library(ggeffects)
 ```
 
 ### Color codes

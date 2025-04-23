@@ -39,10 +39,36 @@ all_data %>%
 ```{r sequencing_depth_test, warning=FALSE, comments="", message=FALSE}
 all_data  %>%
     filter(Taxon != "Control") %>%
-    lmerTest::lmer(bases_post_fastp ~ Extraction * Taxon + (1 | Sample) + (1 | Species), data = .) %>%
-    summary() 
-```
+    lmerTest::lmer(bases_post_fastp ~ Taxon + Extraction + (1 | Species/Sample), data = ., REML = TRUE) %>%
+    plot()
 
+all_data  %>%
+    filter(Taxon != "Control") %>%
+    lmerTest::lmer(bases_post_fastp ~ Taxon + Extraction + (1 | Species/Sample), data = ., REML = TRUE) %>%
+    anova()
+
+all_data  %>%
+    filter(Taxon != "Control") %>%
+    lmerTest::lmer(bases_post_fastp ~ Taxon + Extraction + (1 | Species/Sample), data = ., REML = TRUE) %>%
+    broom.mixed::tidy() %>%
+    tt()
+
+all_data  %>%
+    filter(Taxon != "Control") %>%
+    lmerTest::lmer(bases_post_fastp ~ Taxon + Extraction + (1 | Species/Sample), data = ., REML = TRUE) %>%
+    plot_model(.,type="pred",terms=c("Taxon","Extraction"))
+
+all_data  %>%
+    filter(Taxon != "Control") %>%
+    lmerTest::lmer(bases_post_fastp ~ Taxon + Extraction + (1 | Species/Sample), data = ., REML = TRUE) %>%
+    plot_model(.,type="pred",terms=c("Species"),pred.type = "re",ci.lvl = NA)+
+        theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+all_data  %>%
+    filter(Taxon != "Control") %>%
+    lmerTest::lmer(bases_post_fastp ~ Taxon + Extraction + (1 | Species/Sample), data = ., REML = TRUE) %>%
+    r.squaredGLMM()
+```
 ## Quality-filtering
 
 ```{r qc_summary, warning=FALSE, comments="", message=FALSE}
@@ -69,11 +95,25 @@ all_data %>%
 ```
 
 ```{r qc_test, warning=FALSE, comments="", message=FALSE}
-all_data  %>%
-    mutate(qf_bases=bases_post_fastp/bases_pre_fastp*100) %>%
-    filter(Taxon != "Control") %>%
-    lmerTest::lmer(qf_bases ~ Extraction + (1 | Sample) + (1 | Species), data = ., REML = FALSE) %>%
-    broom.mixed::tidy() %>%
-    tt()
-```
+data<-all_data  %>%
+    mutate(qf_bases=bases_post_fastp/bases_pre_fastp,unique_sample=factor(1:nrow(all_data))) %>%
+    filter(Taxon != "Control") 
 
+M <-MASS::glmmPQL(qf_bases~ Taxon+Extraction,random=~1|Species/Sample,
+               family="quasibinomial",data=data)
+
+Anova_table<-car::Anova(M,test.statistic="Wald",type="III")%>%
+    mutate(F=Chisq/Df) # Approximate F value
+n <- nrow(M$data)  # Total number of observations
+df_fixed <- length(fixef(M))  # Number of fixed effect parameters
+df_random <- length(ranef(M))  # Number of random effect parameters (or levels)
+approx_residual_df <- n - df_fixed - df_random # Approx. residual Df
+data.frame(Anova_table,
+           p_value=pf(Anova_table$F, Anova_table$Df, approx_residual_df, lower.tail = FALSE))%>%
+  select(F,p_value)
+
+broom.mixed::tidy(M) %>%
+    tt()
+
+plot_model(M,type="pred",terms=c("Taxon","Extraction"))
+```
