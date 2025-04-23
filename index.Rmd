@@ -1,5 +1,5 @@
 ---
-title: "Earth Hologenome Initiative | Lauritsen et al. 2024"
+title: "Earth Hologenome Initiative | Lauritsen et al. 2025"
 subtitle: "Robust, open-source, and automation-friendly DNA extraction protocol for hologenomic research"
 author:
   - Jonas G. Laurisen, Christian Carøe, Nanna Gaun, Garazi Martin, Aoife Leonard, Raphael Eisenhofer, M Thomas P Gilbert, Ostaizka Aizpurua, Antton Alberdi^[University of Copenhagen, antton.alberdi@sund.ku.dk], Carlotta Pietroni

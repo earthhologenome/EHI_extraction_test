@@ -5,7 +5,7 @@ bookdown::gitbook:
     toc:
       before: |
         <li class="toc-logo"><img src="ehi_logo.png" alt="Earth Hologenome Initiative"></li>
-        <li align="center"><b>Lauritsen et al. 2024</b></li>
+        <li align="center"><b>Lauritsen et al. 2025</b></li>
       after: |
         <li><a href="https://www.earthhologenome.org" target="blank"><b>Earth Hologenome Initiative</b></a></li>
         <li><a href="https://www.earthhologenome.org/bioinformatics" target="blank"><b>Bioinformatic workflow</b></a></li>
