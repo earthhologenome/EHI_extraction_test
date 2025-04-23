@@ -87,12 +87,7 @@ all_data <- read_tsv("data/all_data.tsv") %>%
       "Bird",
       "Control"
     )),
-    Extraction = case_when(
-      Extraction == "REF" ~ "REF",
-      Extraction == "DREX" ~ "DREX1",
-      Extraction == "EHEX" ~ "DREX2",
-      TRUE ~ Extraction # Keep other values unchanged
-    ), Extraction = factor(Extraction, levels = c(
+    Extraction = factor(Extraction, levels = c(
       "REF",
       "DREX1",
       "DREX2"
