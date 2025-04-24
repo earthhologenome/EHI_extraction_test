@@ -31,14 +31,14 @@ community-barplot
 sample-digestion
 instruments-plasticware-and-reagents
 protocol
-Zymo-dna-extraction
+ref-dna-extraction
 instruments-plasticware-and-reagents-1
 protocol-1
-drex-dna-extraction
+drex1-dna-extraction
 instruments-plasticware-and-reagents-2
 preparation-of-working-reagents
 protocol-2
-ehex-dna-extraction
+drex2-dna-extraction
 instruments-plasticware-and-reagents-3
 preparation-of-working-reagents-1
 protocol-3

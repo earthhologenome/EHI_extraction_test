@@ -23,7 +23,7 @@ knitr::opts_chunk$set(
 
 # Introduction
 
-This webbook contains all the code used for the comparative study on the generation of metagenomic data from faeces of various species using three extraction methods.
+This webbook contains all the dadta and code used for the comparative study on the generation of genomic and metagenomic data from faeces of various vertebrate species using three extraction methods.
 
 ## Prepare the R environment
 

@@ -1,4 +1,4 @@
-# EHEX DNA extraction {#ehex-dna-extraction}
+# DREX2 DNA extraction {#drex2-dna-extraction}
 DNA extraction involves isolating DNA molecules from the rest of organic materials in the mixture, as well as removing inhibitors such as polysaccharides, proteins and bile salts, which can affect downstream enzymatic reactions, such as adaptor ligation or PCR amplification. The DNA extraction procedure employed in the EHI involves DNA isolation using silica magnetic beads combined with solid-phase reversible immobilisation (SPRI) to remove as many inhibitors as possible. This technique takes advantage of the binding properties of silica magnetic beads to selectively capture DNA fragments, followed by the principle of SPRI to efficiently remove impurities and elute the purified DNA.
 
 ## Instruments, plasticware and reagents
