@@ -7,9 +7,9 @@ Jonas G. Laurisen, Christian Carøe, Nanna Gaun, Garazi Martin, Aoife Leonard, R
 
 ## Compared methods
 
-- **ZYMO**: ZymoBIOMICS™ MagBead DNA/RNA commercial extraction kit.
-- **DREX**: Open-source custom extraction procedure developed for DNA and RNA extraction.
-- **EHEX**: Open-source custom extraction procedure optimised for DNA extraction.
+- **REF**: ZymoBIOMICS™ MagBead DNA/RNA commercial extraction kit.
+- **DREX1**: Open-source custom extraction procedure developed for DNA and RNA extraction.
+- **DREX2**: Open-source custom extraction procedure optimised for DNA extraction.
 
 ## Tested species
 
